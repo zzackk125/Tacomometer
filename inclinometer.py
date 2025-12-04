@@ -15,7 +15,7 @@ COLOR_ACCENT = "#FF6D00"   # Deep Orange
 COLOR_TEXT = "#E0E0E0"     # High emphasis text
 COLOR_TEXT_DIM = "#9E9E9E" # Medium emphasis text
 COLOR_TICK = "#424242"     # Dark grey for minor ticks
-COLOR_TICK_MAJOR = "#E0E0E0" # Light grey for major ticks
+COLOR_TICK_MAJOR = "#FF6D00" # Orange for major ticks
 
 class InclinometerUI:
     def __init__(self):
@@ -219,14 +219,16 @@ class InclinometerUI:
         
         # --- Values & Icons Layout ---
         # Roll Value (Left)
+        # Move closer to center: 25 * scale instead of 50
         roll_text = f"{int(self.curr_roll)}°"
-        draw.text((self.center_x - 50 * self.scale, self.center_y), roll_text, font=self.font_value, fill=COLOR_TEXT, anchor="rm")
-        draw.text((self.center_x - 50 * self.scale, self.center_y + 20 * self.scale), "ROLL", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="rm")
+        draw.text((self.center_x - 25 * self.scale, self.center_y), roll_text, font=self.font_value, fill=COLOR_TEXT, anchor="rm")
+        draw.text((self.center_x - 25 * self.scale, self.center_y + 20 * self.scale), "ROLL", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="rm")
 
         # Pitch Value (Right)
+        # Move closer to center: 25 * scale instead of 50
         pitch_text = f"{int(self.curr_pitch)}°"
-        draw.text((self.center_x + 50 * self.scale, self.center_y), pitch_text, font=self.font_value, fill=COLOR_TEXT, anchor="lm")
-        draw.text((self.center_x + 50 * self.scale, self.center_y + 20 * self.scale), "PITCH", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="lm")
+        draw.text((self.center_x + 25 * self.scale, self.center_y), pitch_text, font=self.font_value, fill=COLOR_TEXT, anchor="lm")
+        draw.text((self.center_x + 25 * self.scale, self.center_y + 20 * self.scale), "PITCH", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="lm")
         
         # Roll Truck (Top Center)
         roll_layer = self.get_truck_rear_layer(self.curr_roll)
