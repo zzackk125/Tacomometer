@@ -51,9 +51,10 @@ class InclinometerUI:
         radius_inner_minor = 112 * self.scale
         radius_text = 92 * self.scale
 
-        # Draw ticks for Top (Roll) and Bottom (Pitch) arcs
-        # Range: -40 to +40 degrees (centered at 0 and 180)
-        tick_ranges = [range(-40, 41, 5), range(140, 221, 5)]
+        # Draw ticks for Left (Roll) and Right (Pitch) arcs
+        # Left: Centered at 270 (West). Range +/- 40.
+        # Right: Centered at 90 (East). Range +/- 40.
+        tick_ranges = [range(270-40, 270+41, 5), range(90-40, 90+41, 5)]
         
         for rng in tick_ranges:
             for angle in rng:
@@ -77,12 +78,17 @@ class InclinometerUI:
                 draw.line((x_in, y_in, x_out, y_out), fill=color, width=width)
                 
                 if is_major:
-                    # Value for label (-30 to 30)
-                    val = angle
-                    if val > 90: val = val - 180 # Bottom arc: 180 becomes 0
+                    # Value relative to center (270 or 90)
+                    if angle > 180: # Left side
+                        val = 270 - angle
+                    else: # Right side
+                        val = 90 - angle
                     
-                    # Only label -30, -20, -10, 0, 10, 20, 30
-                    if val % 10 == 0 and abs(val) <= 30:
+                    # Invert sign so Up is positive?
+                    # Usually Up is positive pitch/roll in these displays
+                    val = -val 
+
+                    if abs(val) <= 30:
                         text = str(val)
                         bbox = draw.textbbox((0, 0), text, font=self.font_scale)
                         w = bbox[2] - bbox[0]
@@ -156,13 +162,30 @@ class InclinometerUI:
         
         return img.rotate(pitch_angle, resample=Image.BICUBIC)
 
-    def draw_arrow(self, draw, x, y, direction="right", color=COLOR_ACCENT):
-        size = 6 * self.scale
-        if direction == "right":
-            points = [(x, y-size), (x+size, y), (x, y+size)]
-        else:
-            points = [(x, y-size), (x-size, y), (x, y+size)]
-        draw.polygon(points, fill=color)
+    def draw_pointer(self, draw, angle_deg, radius):
+        """Draws a triangular pointer at the given angle and radius"""
+        rad = math.radians(angle_deg - 90)
+        
+        # Tip of the triangle (pointing outwards)
+        tip_x = self.center_x + radius * math.cos(rad)
+        tip_y = self.center_y + radius * math.sin(rad)
+        
+        # Base center (slightly inwards)
+        base_dist = 15 * self.scale
+        base_cx = self.center_x + (radius - base_dist) * math.cos(rad)
+        base_cy = self.center_y + (radius - base_dist) * math.sin(rad)
+        
+        # Base width
+        width = 8 * self.scale
+        
+        # Perpendicular vector
+        perp_x = -math.sin(rad)
+        perp_y = math.cos(rad)
+        
+        p1 = (base_cx + width * perp_x, base_cy + width * perp_y)
+        p2 = (base_cx - width * perp_x, base_cy - width * perp_y)
+        
+        draw.polygon([p1, p2, (tip_x, tip_y)], fill=COLOR_ACCENT)
 
     def update(self, target_roll, target_pitch):
         # Smooth animation
@@ -175,59 +198,43 @@ class InclinometerUI:
         
         self.draw_background(draw)
         
-        # --- Center Divider & Arrows ---
-        line_y = self.center_y
-        line_start_x = self.center_x - (110 * self.scale) # Extend to near edge
-        line_end_x = self.center_x + (110 * self.scale)
+        # --- Pointers ---
+        # Roll (Left Scale, centered at 270)
+        # +Roll -> Up (Counter-clockwise from 270) -> 270 - Roll? No, 270 is West.
+        # 0 -> 270. +10 -> 260 (Up). -10 -> 280 (Down).
+        # So Angle = 270 - Roll
+        roll_angle_map = 270 - self.curr_roll
+        self.draw_pointer(draw, roll_angle_map, 100 * self.scale)
         
-        draw.line((line_start_x, line_y, line_end_x, line_y), fill=COLOR_TICK, width=1*self.scale)
-        self.draw_arrow(draw, line_start_x, line_y, "left")
-        self.draw_arrow(draw, line_end_x, line_y, "right")
+        # Pitch (Right Scale, centered at 90)
+        # +Pitch -> Up (Clockwise from 90? No, 90 is East. 0 is North, 180 South).
+        # 0 -> 90. +10 -> 80 (Up). -10 -> 100 (Down).
+        # So Angle = 90 - Pitch
+        pitch_angle_map = 90 - self.curr_pitch
+        self.draw_pointer(draw, pitch_angle_map, 100 * self.scale)
         
         # --- Labels ---
         label_offset_y = 8 * self.scale
         label_offset_x = 40 * self.scale
-        draw.text((self.center_x - label_offset_x, self.center_y + label_offset_y), "ROLL", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="mt")
-        draw.text((self.center_x + label_offset_x, self.center_y + label_offset_y), "PITCH", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="mt")
         
         # --- Values & Icons Layout ---
-        # Roll: Truck Top, Value Below (but above center)
-        roll_truck_y = self.center_y - (60 * self.scale)
-        roll_text_y = self.center_y - (25 * self.scale)
-        
-        # Pitch: Truck Bottom, Value Above (but below center)
-        # Actually, let's keep symmetry:
-        # Roll (Left Side): Truck Top, Value Below
-        # Pitch (Right Side): Truck Bottom, Value Above
-        # Wait, the previous layout was: Roll Top-Left, Pitch Top-Right.
-        # Let's try:
-        # Roll: Truck centered in top half. Value below it.
-        # Pitch: Truck centered in bottom half. Value above it.
-        # But that conflicts with the center line labels.
-        
-        # Refined Layout:
-        # Center Line separates Roll (Left) and Pitch (Right) labels.
-        # But usually Roll is the main arc? 
-        # Let's stick to the "Cockpit" look:
-        # Top Half: Roll Truck. 
-        # Bottom Half: Pitch Truck.
-        # Values: Large numbers near the center line.
-        
-        # Roll Value (Left of center, above line)
+        # Roll Value (Left)
         roll_text = f"{int(self.curr_roll)}°"
-        draw.text((self.center_x - label_offset_x, self.center_y - (10 * self.scale)), roll_text, font=self.font_value, fill=COLOR_TEXT, anchor="mb")
+        draw.text((self.center_x - 50 * self.scale, self.center_y), roll_text, font=self.font_value, fill=COLOR_TEXT, anchor="rm")
+        draw.text((self.center_x - 50 * self.scale, self.center_y + 20 * self.scale), "ROLL", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="rm")
 
-        # Pitch Value (Right of center, above line)
+        # Pitch Value (Right)
         pitch_text = f"{int(self.curr_pitch)}°"
-        draw.text((self.center_x + label_offset_x, self.center_y - (10 * self.scale)), pitch_text, font=self.font_value, fill=COLOR_TEXT, anchor="mb")
+        draw.text((self.center_x + 50 * self.scale, self.center_y), pitch_text, font=self.font_value, fill=COLOR_TEXT, anchor="lm")
+        draw.text((self.center_x + 50 * self.scale, self.center_y + 20 * self.scale), "PITCH", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="lm")
         
         # Roll Truck (Top Center)
         roll_layer = self.get_truck_rear_layer(self.curr_roll)
-        image.paste(roll_layer, (self.center_x - (32 * self.scale), self.center_y - (90 * self.scale)), roll_layer)
+        image.paste(roll_layer, (self.center_x - (32 * self.scale), self.center_y - (80 * self.scale)), roll_layer)
         
         # Pitch Truck (Bottom Center)
         pitch_layer = self.get_truck_side_layer(self.curr_pitch)
-        image.paste(pitch_layer, (self.center_x - (32 * self.scale), self.center_y + (20 * self.scale)), pitch_layer)
+        image.paste(pitch_layer, (self.center_x - (32 * self.scale), self.center_y + (40 * self.scale)), pitch_layer)
         
         # Downscale for display (High Quality Anti-Aliasing)
         final_image = image.resize((self.disp.width, self.disp.height), resample=Image.LANCZOS)
