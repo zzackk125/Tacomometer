@@ -175,12 +175,12 @@ class InclinometerUI:
         cx, cy = size//2, size//2
         s = 0.6 * self.scale
         
-        # 2006 Tacoma Double Cab Side View
+        # 2006 Tacoma Double Cab Side View (Long Bed)
         
         # Wheels
         wheel_r = 11 * s
         wheel_front_x = cx + 28 * s
-        wheel_rear_x = cx - 28 * s
+        wheel_rear_x = cx - 34 * s # Moved back
         wheel_y = cy + 14 * s
         
         draw.ellipse((wheel_front_x - wheel_r, wheel_y - wheel_r, wheel_front_x + wheel_r, wheel_y + wheel_r), fill="#333")
@@ -199,9 +199,9 @@ class InclinometerUI:
             (cx + 10*s, cy - 24*s),      # Roof Front
             (cx - 20*s, cy - 24*s),      # Roof Rear
             (cx - 25*s, cy - 8*s),       # Cab Rear Base
-            (cx - 44*s, cy - 8*s),       # Bed Rear Top
-            (cx - 44*s, wheel_y - 5*s),  # Bed Rear Bottom / Bumper
-            (cx - 25*s, wheel_y - 5*s),  # Wheel Well Rear
+            (cx - 54*s, cy - 8*s),       # Bed Rear Top (Extended)
+            (cx - 54*s, wheel_y - 5*s),  # Bed Rear Bottom / Bumper (Extended)
+            (cx - 30*s, wheel_y - 5*s),  # Wheel Well Rear
             # ... skipping wheel well detail for material look, just straight line
         ]
         
