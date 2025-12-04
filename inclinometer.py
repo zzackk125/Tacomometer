@@ -20,34 +20,40 @@ COLOR_TICK_MAJOR = "#E0E0E0" # Light grey for major ticks
 class InclinometerUI:
     def __init__(self):
         self.disp = LCD_1inch28()
-        self.width = self.disp.width
-        self.height = self.disp.height
+        # Super-sampling factor
+        self.scale = 2
+        self.width = self.disp.width * self.scale
+        self.height = self.disp.height * self.scale
         self.center_x = self.width // 2
         self.center_y = self.height // 2
         
-        # Load fonts
+        # Load fonts (scaled up)
         try:
-            # Roboto or similar clean font would be ideal, falling back to DejaVu
-            self.font_value = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
-            self.font_label = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 10)
-            self.font_scale = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 10)
+            self.font_value = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28 * self.scale)
+            self.font_label = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 10 * self.scale)
+            self.font_scale = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 10 * self.scale)
         except IOError:
             self.font_value = ImageFont.load_default()
             self.font_label = ImageFont.load_default()
             self.font_scale = ImageFont.load_default()
 
+        # Animation state
+        self.curr_roll = 0.0
+        self.curr_pitch = 0.0
+        self.alpha = 0.2 # Smoothing factor (0.0 - 1.0)
+
     def draw_background(self, draw):
         """Draws the static background elements (ticks, labels)"""
         draw.rectangle((0, 0, self.width, self.height), fill=COLOR_BG)
         
-        radius_outer = 119
-        radius_inner_major = 105
-        radius_inner_minor = 112
-        radius_text = 92
+        radius_outer = 119 * self.scale
+        radius_inner_major = 105 * self.scale
+        radius_inner_minor = 112 * self.scale
+        radius_text = 92 * self.scale
 
         # Draw ticks
         for angle in range(0, 360, 10):
-            rad = math.radians(angle - 90) # -90 to start at top
+            rad = math.radians(angle - 90)
             cos_a = math.cos(rad)
             sin_a = math.sin(rad)
             
@@ -55,7 +61,7 @@ class InclinometerUI:
             
             r_in = radius_inner_major if is_major else radius_inner_minor
             color = COLOR_TICK_MAJOR if is_major else COLOR_TICK
-            width = 2 if is_major else 1
+            width = (2 * self.scale) if is_major else (1 * self.scale)
             
             x_out = self.center_x + radius_outer * cos_a
             y_out = self.center_y + radius_outer * sin_a
@@ -64,15 +70,11 @@ class InclinometerUI:
             
             draw.line((x_in, y_in, x_out, y_out), fill=color, width=width)
             
-            # Draw numbers for major ticks
-            # We'll display 0 at top/bottom, 90 at sides
             if is_major:
                 val = angle
                 if val > 180: val = 360 - val
-                if val == 180: val = 0 # Bottom is 0 too for symmetry in this context? 
-                # Or let's just show 30, 60, 90...
+                if val == 180: val = 0
                 
-                # Skip 0 (top/bottom) and 90 (sides) to avoid cluttering main UI elements
                 if val % 90 != 0:
                     text = str(val)
                     bbox = draw.textbbox((0, 0), text, font=self.font_scale)
@@ -85,22 +87,18 @@ class InclinometerUI:
                     draw.text((x_txt - w/2, y_txt - h/2), text, font=self.font_scale, fill=COLOR_TEXT_DIM)
 
     def get_truck_rear_layer(self, roll_angle):
-        # Reduced size
-        size = 64 
+        size = 64 * self.scale
         img = Image.new("RGBA", (size, size), (0,0,0,0))
         draw = ImageDraw.Draw(img)
         
         cx, cy = size//2, size//2
-        
-        # Scale factors
-        s = 0.6 # Scale down drawing coordinates
+        s = 0.6 * self.scale
         
         # Tires
         tire_w, tire_h = 10 * s, 20 * s
         tire_offset_x = 28 * s
         tire_offset_y = 8 * s
         
-        # Draw tires
         draw.rectangle((cx - tire_offset_x - tire_w, cy + tire_offset_y, cx - tire_offset_x, cy + tire_offset_y + tire_h), fill="#444")
         draw.rectangle((cx + tire_offset_x, cy + tire_offset_y, cx + tire_offset_x + tire_w, cy + tire_offset_y + tire_h), fill="#444")
         
@@ -123,12 +121,12 @@ class InclinometerUI:
         return img.rotate(-roll_angle, resample=Image.BICUBIC)
 
     def get_truck_side_layer(self, pitch_angle):
-        size = 64
+        size = 64 * self.scale
         img = Image.new("RGBA", (size, size), (0,0,0,0))
         draw = ImageDraw.Draw(img)
         
         cx, cy = size//2, size//2
-        s = 0.6
+        s = 0.6 * self.scale
         
         # Wheels
         wheel_r = 9 * s
@@ -152,14 +150,19 @@ class InclinometerUI:
         return img.rotate(pitch_angle, resample=Image.BICUBIC)
 
     def draw_arrow(self, draw, x, y, direction="right", color=COLOR_ACCENT):
-        size = 6
+        size = 6 * self.scale
         if direction == "right":
             points = [(x, y-size), (x+size, y), (x, y+size)]
         else:
             points = [(x, y-size), (x-size, y), (x, y+size)]
         draw.polygon(points, fill=color)
 
-    def update(self, roll, pitch):
+    def update(self, target_roll, target_pitch):
+        # Smooth animation
+        self.curr_roll += (target_roll - self.curr_roll) * self.alpha
+        self.curr_pitch += (target_pitch - self.curr_pitch) * self.alpha
+        
+        # Draw at 2x resolution
         image = Image.new("RGB", (self.width, self.height), COLOR_BG)
         draw = ImageDraw.Draw(image)
         
@@ -167,62 +170,80 @@ class InclinometerUI:
         
         # --- Center Divider & Arrows ---
         line_y = self.center_y
-        line_start_x = self.center_x - 50
-        line_end_x = self.center_x + 50
+        line_start_x = self.center_x - (50 * self.scale)
+        line_end_x = self.center_x + (50 * self.scale)
         
-        # Dashed line? Or solid. Reference has dashed.
-        # Simple solid for now with arrows
-        draw.line((line_start_x, line_y, line_end_x, line_y), fill=COLOR_TICK, width=1)
-        
-        # Arrows
+        draw.line((line_start_x, line_y, line_end_x, line_y), fill=COLOR_TICK, width=1*self.scale)
         self.draw_arrow(draw, line_start_x, line_y, "left")
         self.draw_arrow(draw, line_end_x, line_y, "right")
         
         # --- Labels ---
-        # "ROLL" (Left side)
-        draw.text((self.center_x - 40, self.center_y + 8), "ROLL", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="mt")
+        label_offset_y = 8 * self.scale
+        label_offset_x = 40 * self.scale
+        draw.text((self.center_x - label_offset_x, self.center_y + label_offset_y), "ROLL", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="mt")
+        draw.text((self.center_x + label_offset_x, self.center_y + label_offset_y), "PITCH", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="mt")
         
-        # "PITCH" (Right side)
-        draw.text((self.center_x + 40, self.center_y + 8), "PITCH", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="mt")
+        # --- Values & Icons Layout ---
+        # Roll: Truck Top, Value Below (but above center)
+        roll_truck_y = self.center_y - (60 * self.scale)
+        roll_text_y = self.center_y - (25 * self.scale)
         
-        # --- Values ---
-        # Roll Value (Top Left quadrant)
-        roll_text = f"{int(roll)}°"
-        draw.text((self.center_x - 40, self.center_y - 25), roll_text, font=self.font_value, fill=COLOR_TEXT, anchor="mb")
+        # Pitch: Truck Bottom, Value Above (but below center)
+        # Actually, let's keep symmetry:
+        # Roll (Left Side): Truck Top, Value Below
+        # Pitch (Right Side): Truck Bottom, Value Above
+        # Wait, the previous layout was: Roll Top-Left, Pitch Top-Right.
+        # Let's try:
+        # Roll: Truck centered in top half. Value below it.
+        # Pitch: Truck centered in bottom half. Value above it.
+        # But that conflicts with the center line labels.
+        
+        # Refined Layout:
+        # Center Line separates Roll (Left) and Pitch (Right) labels.
+        # But usually Roll is the main arc? 
+        # Let's stick to the "Cockpit" look:
+        # Top Half: Roll Truck. 
+        # Bottom Half: Pitch Truck.
+        # Values: Large numbers near the center line.
+        
+        # Roll Value (Left of center, above line)
+        roll_text = f"{int(self.curr_roll)}°"
+        draw.text((self.center_x - label_offset_x, self.center_y - (10 * self.scale)), roll_text, font=self.font_value, fill=COLOR_TEXT, anchor="mb")
 
-        # Pitch Value (Top Right quadrant)
-        pitch_text = f"{int(pitch)}°"
-        draw.text((self.center_x + 40, self.center_y - 25), pitch_text, font=self.font_value, fill=COLOR_TEXT, anchor="mb")
+        # Pitch Value (Right of center, above line)
+        pitch_text = f"{int(self.curr_pitch)}°"
+        draw.text((self.center_x + label_offset_x, self.center_y - (10 * self.scale)), pitch_text, font=self.font_value, fill=COLOR_TEXT, anchor="mb")
         
-        # --- Trucks ---
         # Roll Truck (Top Center)
-        roll_layer = self.get_truck_rear_layer(roll)
-        # Position: centered horizontally, upper half vertically
-        image.paste(roll_layer, (self.center_x - 32, self.center_y - 85), roll_layer)
+        roll_layer = self.get_truck_rear_layer(self.curr_roll)
+        image.paste(roll_layer, (self.center_x - (32 * self.scale), self.center_y - (90 * self.scale)), roll_layer)
         
         # Pitch Truck (Bottom Center)
-        pitch_layer = self.get_truck_side_layer(pitch)
-        # Position: centered horizontally, lower half vertically
-        image.paste(pitch_layer, (self.center_x - 32, self.center_y + 25), pitch_layer)
+        pitch_layer = self.get_truck_side_layer(self.curr_pitch)
+        image.paste(pitch_layer, (self.center_x - (32 * self.scale), self.center_y + (20 * self.scale)), pitch_layer)
         
-        self.disp.ShowImage(image)
+        # Downscale for display (High Quality Anti-Aliasing)
+        final_image = image.resize((self.disp.width, self.disp.height), resample=Image.LANCZOS)
+        
+        self.disp.ShowImage(final_image)
 
 def main():
     ui = InclinometerUI()
-    logger.info("Starting Refined Inclinometer UI...")
+    logger.info("Starting Modern Inclinometer UI...")
     
     try:
-        roll = 0
-        pitch = 0
-        step = 1
+        target_roll = 0
+        target_pitch = 0
+        step = 5
         while True:
-            ui.update(roll, pitch)
+            ui.update(target_roll, target_pitch)
             
-            roll += step
-            pitch += step * 0.5
-            
-            if roll > 30 or roll < -30:
-                step *= -1
+            # Change targets periodically to test smoothing
+            if abs(ui.curr_roll - target_roll) < 1:
+                target_roll += step
+                target_pitch += step * 0.5
+                if target_roll > 30 or target_roll < -30:
+                    step *= -1
             
             # time.sleep(0.01)
             
