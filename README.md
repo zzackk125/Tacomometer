@@ -22,6 +22,13 @@ This project drives a 1.28inch GC9A01 SPI LCD display on a Raspberry Pi Zero to 
 1.  **Enable SPI Interface**:
     Run `sudo raspi-config`, navigate to **Interface Options** -> **SPI** and enable it.
 
+2.  **Clone the Repository**:
+    If you haven't already, clone this repository to your Raspberry Pi:
+    ```bash
+    git clone https://github.com/zzackk125/Tacomometer.git
+    cd Tacomometer
+    ```
+
 2.  **Install Dependencies**:
     ```bash
     pip install -r requirements.txt
@@ -32,9 +39,4 @@ This project drives a 1.28inch GC9A01 SPI LCD display on a Raspberry Pi Zero to 
     python main.py
     ```
 
-4.  **Clone the Repository**:
-    If you haven't already, clone this repository to your Raspberry Pi:
-    ```bash
-    git clone https://github.com/YOUR_USERNAME/Tacomometer.git
-    cd Tacomometer
-    ```
+
