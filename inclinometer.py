@@ -51,40 +51,47 @@ class InclinometerUI:
         radius_inner_minor = 112 * self.scale
         radius_text = 92 * self.scale
 
-        # Draw ticks
-        for angle in range(0, 360, 10):
-            rad = math.radians(angle - 90)
-            cos_a = math.cos(rad)
-            sin_a = math.sin(rad)
-            
-            is_major = (angle % 30 == 0)
-            
-            r_in = radius_inner_major if is_major else radius_inner_minor
-            color = COLOR_TICK_MAJOR if is_major else COLOR_TICK
-            width = (2 * self.scale) if is_major else (1 * self.scale)
-            
-            x_out = self.center_x + radius_outer * cos_a
-            y_out = self.center_y + radius_outer * sin_a
-            x_in = self.center_x + r_in * cos_a
-            y_in = self.center_y + r_in * sin_a
-            
-            draw.line((x_in, y_in, x_out, y_out), fill=color, width=width)
-            
-            if is_major:
-                val = angle
-                if val > 180: val = 360 - val
-                if val == 180: val = 0
+        # Draw ticks for Top (Roll) and Bottom (Pitch) arcs
+        # Range: -40 to +40 degrees (centered at 0 and 180)
+        tick_ranges = [range(-40, 41, 5), range(140, 221, 5)]
+        
+        for rng in tick_ranges:
+            for angle in rng:
+                # Normalize angle for math
+                rad_angle = angle - 90
+                rad = math.radians(rad_angle)
+                cos_a = math.cos(rad)
+                sin_a = math.sin(rad)
                 
-                if val % 90 != 0:
-                    text = str(val)
-                    bbox = draw.textbbox((0, 0), text, font=self.font_scale)
-                    w = bbox[2] - bbox[0]
-                    h = bbox[3] - bbox[1]
+                is_major = (angle % 10 == 0)
+                
+                r_in = radius_inner_major if is_major else radius_inner_minor
+                color = COLOR_TICK_MAJOR if is_major else COLOR_TICK
+                width = (2 * self.scale) if is_major else (1 * self.scale)
+                
+                x_out = self.center_x + radius_outer * cos_a
+                y_out = self.center_y + radius_outer * sin_a
+                x_in = self.center_x + r_in * cos_a
+                y_in = self.center_y + r_in * sin_a
+                
+                draw.line((x_in, y_in, x_out, y_out), fill=color, width=width)
+                
+                if is_major:
+                    # Value for label (-30 to 30)
+                    val = angle
+                    if val > 90: val = val - 180 # Bottom arc: 180 becomes 0
                     
-                    x_txt = self.center_x + radius_text * cos_a
-                    y_txt = self.center_y + radius_text * sin_a
-                    
-                    draw.text((x_txt - w/2, y_txt - h/2), text, font=self.font_scale, fill=COLOR_TEXT_DIM)
+                    # Only label -30, -20, -10, 0, 10, 20, 30
+                    if val % 10 == 0 and abs(val) <= 30:
+                        text = str(val)
+                        bbox = draw.textbbox((0, 0), text, font=self.font_scale)
+                        w = bbox[2] - bbox[0]
+                        h = bbox[3] - bbox[1]
+                        
+                        x_txt = self.center_x + radius_text * cos_a
+                        y_txt = self.center_y + radius_text * sin_a
+                        
+                        draw.text((x_txt - w/2, y_txt - h/2), text, font=self.font_scale, fill=COLOR_TEXT_DIM)
 
     def get_truck_rear_layer(self, roll_angle):
         size = 64 * self.scale
@@ -170,8 +177,8 @@ class InclinometerUI:
         
         # --- Center Divider & Arrows ---
         line_y = self.center_y
-        line_start_x = self.center_x - (50 * self.scale)
-        line_end_x = self.center_x + (50 * self.scale)
+        line_start_x = self.center_x - (110 * self.scale) # Extend to near edge
+        line_end_x = self.center_x + (110 * self.scale)
         
         draw.line((line_start_x, line_y, line_end_x, line_y), fill=COLOR_TICK, width=1*self.scale)
         self.draw_arrow(draw, line_start_x, line_y, "left")
