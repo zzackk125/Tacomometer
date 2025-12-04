@@ -106,29 +106,64 @@ class InclinometerUI:
         cx, cy = size//2, size//2
         s = 0.6 * self.scale
         
-        # Tires
-        tire_w, tire_h = 10 * s, 20 * s
-        tire_offset_x = 28 * s
-        tire_offset_y = 8 * s
+        # 2006 Tacoma Rear View
         
-        draw.rectangle((cx - tire_offset_x - tire_w, cy + tire_offset_y, cx - tire_offset_x, cy + tire_offset_y + tire_h), fill="#444")
-        draw.rectangle((cx + tire_offset_x, cy + tire_offset_y, cx + tire_offset_x + tire_w, cy + tire_offset_y + tire_h), fill="#444")
+        # Tires (Wider stance)
+        tire_w, tire_h = 12 * s, 22 * s
+        tire_offset_x = 30 * s
+        tire_offset_y = 10 * s
         
-        # Axle
-        draw.line((cx - tire_offset_x, cy + tire_offset_y + tire_h/2, cx + tire_offset_x, cy + tire_offset_y + tire_h/2), fill="#333", width=int(3*s))
+        draw.rectangle((cx - tire_offset_x - tire_w, cy + tire_offset_y, cx - tire_offset_x, cy + tire_offset_y + tire_h), fill="#333")
+        draw.rectangle((cx + tire_offset_x, cy + tire_offset_y, cx + tire_offset_x + tire_w, cy + tire_offset_y + tire_h), fill="#333")
+        
+        # Axle/Diff
+        draw.rectangle((cx - tire_offset_x, cy + tire_offset_y + tire_h//2 - 2*s, cx + tire_offset_x, cy + tire_offset_y + tire_h//2 + 2*s), fill="#222")
+        # Diff pumpkin
+        draw.ellipse((cx - 4*s, cy + tire_offset_y + tire_h//2 - 4*s, cx + 4*s, cy + tire_offset_y + tire_h//2 + 4*s), fill="#222")
 
-        # Body
-        body_w, body_h = 50 * s, 30 * s
+        # Body (Bed/Tailgate)
+        body_w, body_h = 64 * s, 28 * s
+        body_top = cy - body_h//2
+        body_bottom = cy + body_h//2
+        
+        # Main Box
+        draw.rectangle((cx - body_w//2, body_top, cx + body_w//2, body_bottom), fill=COLOR_ACCENT)
+        
+        # Fender Flares (The "Tacoma" look)
+        flare_w = 6 * s
+        draw.polygon([(cx - body_w//2, body_top), (cx - body_w//2 - flare_w, body_top + 5*s), (cx - body_w//2 - flare_w, body_bottom), (cx - body_w//2, body_bottom)], fill=COLOR_ACCENT)
+        draw.polygon([(cx + body_w//2, body_top), (cx + body_w//2 + flare_w, body_top + 5*s), (cx + body_w//2 + flare_w, body_bottom), (cx + body_w//2, body_bottom)], fill=COLOR_ACCENT)
+
+        # Cabin (Rear window)
+        cab_w_bottom = 56 * s
+        cab_w_top = 48 * s
+        cab_h = 24 * s
+        cab_bottom = body_top
+        cab_top = cab_bottom - cab_h
+        
         draw.polygon([
-            (cx - body_w//2, cy - body_h//2), 
-            (cx + body_w//2, cy - body_h//2), 
-            (cx + body_w//2, cy + body_h//2), 
-            (cx - body_w//2, cy + body_h//2), 
+            (cx - cab_w_top//2, cab_top),
+            (cx + cab_w_top//2, cab_top),
+            (cx + cab_w_bottom//2, cab_bottom),
+            (cx - cab_w_bottom//2, cab_bottom)
         ], fill=COLOR_ACCENT)
         
-        # Window
-        win_w, win_h = 34 * s, 12 * s
-        draw.rectangle((cx - win_w//2, cy - body_h//2 + 4*s, cx + win_w//2, cy - body_h//2 + 4*s + win_h), fill="#222")
+        # Rear Window (Dark Grey)
+        win_w_top = 44 * s
+        win_w_bottom = 50 * s
+        win_h = 14 * s
+        win_top = cab_top + 4*s
+        
+        draw.polygon([
+            (cx - win_w_top//2, win_top),
+            (cx + win_w_top//2, win_top),
+            (cx + win_w_bottom//2, win_top + win_h),
+            (cx - win_w_bottom//2, win_top + win_h)
+        ], fill="#222")
+        
+        # Bumper
+        bumper_h = 6 * s
+        draw.rectangle((cx - body_w//2 - 2*s, body_bottom, cx + body_w//2 + 2*s, body_bottom + bumper_h), fill="#555")
 
         return img.rotate(-roll_angle, resample=Image.BICUBIC)
 
@@ -140,25 +175,55 @@ class InclinometerUI:
         cx, cy = size//2, size//2
         s = 0.6 * self.scale
         
-        # Wheels
-        wheel_r = 9 * s
-        wheel_dist = 22 * s
-        draw.ellipse((cx - wheel_dist - wheel_r, cy + 12*s - wheel_r, cx - wheel_dist + wheel_r, cy + 12*s + wheel_r), fill="#444")
-        draw.ellipse((cx + wheel_dist - wheel_r, cy + 12*s - wheel_r, cx + wheel_dist + wheel_r, cy + 12*s + wheel_r), fill="#444")
+        # 2006 Tacoma Double Cab Side View
         
-        # Body
+        # Wheels
+        wheel_r = 11 * s
+        wheel_front_x = cx + 28 * s
+        wheel_rear_x = cx - 28 * s
+        wheel_y = cy + 14 * s
+        
+        draw.ellipse((wheel_front_x - wheel_r, wheel_y - wheel_r, wheel_front_x + wheel_r, wheel_y + wheel_r), fill="#333")
+        draw.ellipse((wheel_rear_x - wheel_r, wheel_y - wheel_r, wheel_rear_x + wheel_r, wheel_y + wheel_r), fill="#333")
+        
+        # Body Line (Chassis/Rockers)
+        draw.rectangle((wheel_rear_x, wheel_y - 8*s, wheel_front_x, wheel_y), fill="#222")
+
+        # Main Body Shape
+        # Nose, Hood, Windshield, Roof, Rear Window, Bed
+        
         poly = [
-            (cx - 30*s, cy + 12*s), 
-            (cx + 30*s, cy + 12*s), 
-            (cx + 30*s, cy - 4*s),  
-            (cx + 12*s, cy - 4*s),  
-            (cx + 4*s, cy - 16*s),  
-            (cx - 12*s, cy - 16*s), 
-            (cx - 12*s, cy - 4*s),  
-            (cx - 30*s, cy - 4*s),  
+            (cx + 42*s, wheel_y - 5*s),  # Front Bumper Bottom
+            (cx + 42*s, cy - 6*s),       # Nose Top
+            (cx + 25*s, cy - 8*s),       # Hood Rear / Windshield Base
+            (cx + 10*s, cy - 24*s),      # Roof Front
+            (cx - 20*s, cy - 24*s),      # Roof Rear
+            (cx - 25*s, cy - 8*s),       # Cab Rear Base
+            (cx - 44*s, cy - 8*s),       # Bed Rear Top
+            (cx - 44*s, wheel_y - 5*s),  # Bed Rear Bottom / Bumper
+            (cx - 25*s, wheel_y - 5*s),  # Wheel Well Rear
+            # ... skipping wheel well detail for material look, just straight line
         ]
+        
+        # Draw main body
         draw.polygon(poly, fill=COLOR_ACCENT)
         
+        # Windows (Double Cab)
+        # Side windows are usually black/dark
+        win_poly = [
+            (cx + 8*s, cy - 20*s),       # Front Top
+            (cx + 20*s, cy - 8*s),       # Front Bottom (A-Pillar base)
+            (cx - 18*s, cy - 8*s),       # Rear Bottom
+            (cx - 16*s, cy - 20*s),      # Rear Top
+        ]
+        draw.polygon(win_poly, fill="#222")
+        
+        # B-Pillar (Body color strip)
+        draw.line((cx - 4*s, cy - 20*s, cx - 4*s, cy - 8*s), fill=COLOR_ACCENT, width=int(3*s))
+        
+        # Bed separation line
+        draw.line((cx - 25*s, cy - 8*s, cx - 25*s, wheel_y - 5*s), fill="#111", width=1)
+
         return img.rotate(pitch_angle, resample=Image.BICUBIC)
 
     def draw_pointer(self, draw, angle_deg, radius):
