@@ -9,12 +9,13 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Colors
-COLOR_BG = "#11111d"
-COLOR_ACCENT = "#ff6600"
-COLOR_TEXT = "#FFFFFF"
-COLOR_TICK = "#555555"
-COLOR_TICK_HIGHLIGHT = "#ff6600"
+# Material Design Colors
+COLOR_BG = "#121212"       # Dark background
+COLOR_ACCENT = "#FF6D00"   # Deep Orange 
+COLOR_TEXT = "#E0E0E0"     # High emphasis text
+COLOR_TEXT_DIM = "#9E9E9E" # Medium emphasis text
+COLOR_TICK = "#424242"     # Dark grey for minor ticks
+COLOR_TICK_MAJOR = "#E0E0E0" # Light grey for major ticks
 
 class InclinometerUI:
     def __init__(self):
@@ -26,225 +27,204 @@ class InclinometerUI:
         
         # Load fonts
         try:
-            self.font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
-            self.font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
-            self.font_label = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 10)
+            # Roboto or similar clean font would be ideal, falling back to DejaVu
+            self.font_value = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
+            self.font_label = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 10)
+            self.font_scale = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 10)
         except IOError:
-            self.font_large = ImageFont.load_default()
-            self.font_small = ImageFont.load_default()
+            self.font_value = ImageFont.load_default()
             self.font_label = ImageFont.load_default()
+            self.font_scale = ImageFont.load_default()
 
     def draw_background(self, draw):
         """Draws the static background elements (ticks, labels)"""
-        # Draw background circle
         draw.rectangle((0, 0, self.width, self.height), fill=COLOR_BG)
         
+        radius_outer = 119
+        radius_inner_major = 105
+        radius_inner_minor = 112
+        radius_text = 92
+
         # Draw ticks
-        # We want ticks around the edge. 
-        # Let's say radius is 115 (slightly inside 120)
-        radius_outer = 118
-        radius_inner_long = 105
-        radius_inner_short = 112
-        
         for angle in range(0, 360, 10):
-            rad = math.radians(angle)
+            rad = math.radians(angle - 90) # -90 to start at top
             cos_a = math.cos(rad)
             sin_a = math.sin(rad)
             
+            is_major = (angle % 30 == 0)
+            
+            r_in = radius_inner_major if is_major else radius_inner_minor
+            color = COLOR_TICK_MAJOR if is_major else COLOR_TICK
+            width = 2 if is_major else 1
+            
             x_out = self.center_x + radius_outer * cos_a
             y_out = self.center_y + radius_outer * sin_a
-            
-            is_major = (angle % 30 == 0)
-            r_in = radius_inner_long if is_major else radius_inner_short
-            color = COLOR_TICK_HIGHLIGHT if is_major else COLOR_TICK
-            width = 3 if is_major else 1
-            
             x_in = self.center_x + r_in * cos_a
             y_in = self.center_y + r_in * sin_a
             
             draw.line((x_in, y_in, x_out, y_out), fill=color, width=width)
             
             # Draw numbers for major ticks
+            # We'll display 0 at top/bottom, 90 at sides
             if is_major:
-                # Calculate text position slightly further in
-                r_text = radius_inner_long - 15
-                x_text = self.center_x + r_text * cos_a
-                y_text = self.center_y + r_text * sin_a
+                val = angle
+                if val > 180: val = 360 - val
+                if val == 180: val = 0 # Bottom is 0 too for symmetry in this context? 
+                # Or let's just show 30, 60, 90...
                 
-                # Convert angle to -90 to 90 range for display if needed, 
-                # but for now let's just show 10, 20, 30 etc relative to vertical?
-                # Actually, the reference image shows 0 in center and 10, 20, 30 going out.
-                # Let's stick to the reference image style later. 
-                # For now, generic ticks are fine.
-                pass
-
-    def draw_truck_rear(self, draw, roll_angle):
-        """Draws the rear view of the truck (Roll)"""
-        # Center of top half
-        cx, cy = self.center_x, self.center_y - 60
-        
-        # Create a separate image for rotation
-        truck_size = 80
-        truck_img = Image.new("RGBA", (truck_size, truck_size), (0, 0, 0, 0))
-        t_draw = ImageDraw.Draw(truck_img)
-        
-        # Truck Body (Rectangle)
-        # Coordinates relative to truck_img center (40, 40)
-        tcx, tcy = truck_size // 2, truck_size // 2
-        
-        # Main body
-        body_w, body_h = 50, 30
-        t_draw.rectangle(
-            (tcx - body_w//2, tcy - body_h//2, tcx + body_w//2, tcy + body_h//2), 
-            fill=COLOR_ACCENT, outline=None
-        )
-        
-        # Tires (Left and Right)
-        tire_w, tire_h = 10, 20
-        # Left Tire
-        t_draw.rectangle(
-            (tcx - body_w//2 - tire_w, tcy + 5, tcx - body_w//2, tcy + 5 + tire_h),
-            fill="#333333"
-        )
-        # Right Tire
-        t_draw.rectangle(
-            (tcx + body_w//2, tcy + 5, tcx + body_w//2 + tire_w, tcy + 5 + tire_h),
-            fill="#333333"
-        )
-        
-        # Rotate
-        rotated_truck = truck_img.rotate(-roll_angle, resample=Image.BICUBIC, expand=False)
-        
-        # Paste onto main image
-        # Calculate position to center it at cx, cy
-        paste_x = cx - truck_size // 2
-        paste_y = cy - truck_size // 2
-        
-        draw.bitmap((paste_x, paste_y), rotated_truck, fill=None) # Bitmap might not handle RGBA correctly with mask?
-        # Better to use paste with mask
-        # But we are drawing on 'draw' object which is associated with the main image.
-        # We can't paste onto 'draw'. We need the main image.
-        # So we should return the layer or modify the design.
-        # Let's change the method signature to take the image, not draw.
-        pass
+                # Skip 0 (top/bottom) and 90 (sides) to avoid cluttering main UI elements
+                if val % 90 != 0:
+                    text = str(val)
+                    bbox = draw.textbbox((0, 0), text, font=self.font_scale)
+                    w = bbox[2] - bbox[0]
+                    h = bbox[3] - bbox[1]
+                    
+                    x_txt = self.center_x + radius_text * cos_a
+                    y_txt = self.center_y + radius_text * sin_a
+                    
+                    draw.text((x_txt - w/2, y_txt - h/2), text, font=self.font_scale, fill=COLOR_TEXT_DIM)
 
     def get_truck_rear_layer(self, roll_angle):
-        size = 100
+        # Reduced size
+        size = 64 
         img = Image.new("RGBA", (size, size), (0,0,0,0))
         draw = ImageDraw.Draw(img)
         
         cx, cy = size//2, size//2
         
+        # Scale factors
+        s = 0.6 # Scale down drawing coordinates
+        
         # Tires
-        tire_w, tire_h = 12, 24
-        tire_offset_x = 32
-        tire_offset_y = 10
+        tire_w, tire_h = 10 * s, 20 * s
+        tire_offset_x = 28 * s
+        tire_offset_y = 8 * s
+        
+        # Draw tires
         draw.rectangle((cx - tire_offset_x - tire_w, cy + tire_offset_y, cx - tire_offset_x, cy + tire_offset_y + tire_h), fill="#444")
         draw.rectangle((cx + tire_offset_x, cy + tire_offset_y, cx + tire_offset_x + tire_w, cy + tire_offset_y + tire_h), fill="#444")
         
         # Axle
-        draw.line((cx - tire_offset_x, cy + tire_offset_y + tire_h//2, cx + tire_offset_x, cy + tire_offset_y + tire_h//2), fill="#333", width=4)
+        draw.line((cx - tire_offset_x, cy + tire_offset_y + tire_h/2, cx + tire_offset_x, cy + tire_offset_y + tire_h/2), fill="#333", width=int(3*s))
 
         # Body
-        body_w, body_h = 60, 35
+        body_w, body_h = 50 * s, 30 * s
         draw.polygon([
-            (cx - body_w//2, cy - body_h//2), # Top Left
-            (cx + body_w//2, cy - body_h//2), # Top Right
-            (cx + body_w//2, cy + body_h//2), # Bottom Right
-            (cx - body_w//2, cy + body_h//2), # Bottom Left
+            (cx - body_w//2, cy - body_h//2), 
+            (cx + body_w//2, cy - body_h//2), 
+            (cx + body_w//2, cy + body_h//2), 
+            (cx - body_w//2, cy + body_h//2), 
         ], fill=COLOR_ACCENT)
         
         # Window
-        win_w, win_h = 40, 15
-        draw.rectangle((cx - win_w//2, cy - body_h//2 + 5, cx + win_w//2, cy - body_h//2 + 5 + win_h), fill="#222")
+        win_w, win_h = 34 * s, 12 * s
+        draw.rectangle((cx - win_w//2, cy - body_h//2 + 4*s, cx + win_w//2, cy - body_h//2 + 4*s + win_h), fill="#222")
 
         return img.rotate(-roll_angle, resample=Image.BICUBIC)
 
     def get_truck_side_layer(self, pitch_angle):
-        size = 100
+        size = 64
         img = Image.new("RGBA", (size, size), (0,0,0,0))
         draw = ImageDraw.Draw(img)
         
         cx, cy = size//2, size//2
+        s = 0.6
         
         # Wheels
-        wheel_r = 10
-        wheel_dist = 25
-        draw.ellipse((cx - wheel_dist - wheel_r, cy + 15 - wheel_r, cx - wheel_dist + wheel_r, cy + 15 + wheel_r), fill="#444")
-        draw.ellipse((cx + wheel_dist - wheel_r, cy + 15 - wheel_r, cx + wheel_dist + wheel_r, cy + 15 + wheel_r), fill="#444")
+        wheel_r = 9 * s
+        wheel_dist = 22 * s
+        draw.ellipse((cx - wheel_dist - wheel_r, cy + 12*s - wheel_r, cx - wheel_dist + wheel_r, cy + 12*s + wheel_r), fill="#444")
+        draw.ellipse((cx + wheel_dist - wheel_r, cy + 12*s - wheel_r, cx + wheel_dist + wheel_r, cy + 12*s + wheel_r), fill="#444")
         
         # Body
-        # Simple pickup shape
         poly = [
-            (cx - 35, cy + 15), # Rear bottom
-            (cx + 35, cy + 15), # Front bottom
-            (cx + 35, cy - 5),  # Front hood
-            (cx + 15, cy - 5),  # Windshield base
-            (cx + 5, cy - 20),  # Roof front
-            (cx - 15, cy - 20), # Roof rear
-            (cx - 15, cy - 5),  # Bed front
-            (cx - 35, cy - 5),  # Bed rear
+            (cx - 30*s, cy + 12*s), 
+            (cx + 30*s, cy + 12*s), 
+            (cx + 30*s, cy - 4*s),  
+            (cx + 12*s, cy - 4*s),  
+            (cx + 4*s, cy - 16*s),  
+            (cx - 12*s, cy - 16*s), 
+            (cx - 12*s, cy - 4*s),  
+            (cx - 30*s, cy - 4*s),  
         ]
         draw.polygon(poly, fill=COLOR_ACCENT)
         
         return img.rotate(pitch_angle, resample=Image.BICUBIC)
 
+    def draw_arrow(self, draw, x, y, direction="right", color=COLOR_ACCENT):
+        size = 6
+        if direction == "right":
+            points = [(x, y-size), (x+size, y), (x, y+size)]
+        else:
+            points = [(x, y-size), (x-size, y), (x, y+size)]
+        draw.polygon(points, fill=color)
+
     def update(self, roll, pitch):
-        # Create base image
         image = Image.new("RGB", (self.width, self.height), COLOR_BG)
         draw = ImageDraw.Draw(image)
         
         self.draw_background(draw)
         
-        # Draw Center Line/Horizon
-        draw.line((self.center_x - 60, self.center_y, self.center_x + 60, self.center_y), fill=COLOR_TICK, width=1)
+        # --- Center Divider & Arrows ---
+        line_y = self.center_y
+        line_start_x = self.center_x - 50
+        line_end_x = self.center_x + 50
         
-        # Draw Text Values
-        # Roll (Top)
+        # Dashed line? Or solid. Reference has dashed.
+        # Simple solid for now with arrows
+        draw.line((line_start_x, line_y, line_end_x, line_y), fill=COLOR_TICK, width=1)
+        
+        # Arrows
+        self.draw_arrow(draw, line_start_x, line_y, "left")
+        self.draw_arrow(draw, line_end_x, line_y, "right")
+        
+        # --- Labels ---
+        # "ROLL" (Left side)
+        draw.text((self.center_x - 40, self.center_y + 8), "ROLL", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="mt")
+        
+        # "PITCH" (Right side)
+        draw.text((self.center_x + 40, self.center_y + 8), "PITCH", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="mt")
+        
+        # --- Values ---
+        # Roll Value (Top Left quadrant)
         roll_text = f"{int(roll)}°"
-        bbox = draw.textbbox((0, 0), roll_text, font=self.font_large)
-        w = bbox[2] - bbox[0]
-        draw.text((self.center_x - w//2 - 40, self.center_y - 20), roll_text, font=self.font_large, fill="WHITE")
-        draw.text((self.center_x - 40, self.center_y + 15), "ROLL", font=self.font_label, fill="GRAY", anchor="ms")
+        draw.text((self.center_x - 40, self.center_y - 25), roll_text, font=self.font_value, fill=COLOR_TEXT, anchor="mb")
 
-        # Pitch (Bottom)
+        # Pitch Value (Top Right quadrant)
         pitch_text = f"{int(pitch)}°"
-        bbox = draw.textbbox((0, 0), pitch_text, font=self.font_large)
-        w = bbox[2] - bbox[0]
-        draw.text((self.center_x - w//2 + 40, self.center_y - 20), pitch_text, font=self.font_large, fill="WHITE")
-        draw.text((self.center_x + 40, self.center_y + 15), "PITCH", font=self.font_label, fill="GRAY", anchor="ms")
+        draw.text((self.center_x + 40, self.center_y - 25), pitch_text, font=self.font_value, fill=COLOR_TEXT, anchor="mb")
         
-        # Draw Trucks
-        # Roll Truck (Top)
+        # --- Trucks ---
+        # Roll Truck (Top Center)
         roll_layer = self.get_truck_rear_layer(roll)
-        image.paste(roll_layer, (self.center_x - 50, self.center_y - 100), roll_layer)
+        # Position: centered horizontally, upper half vertically
+        image.paste(roll_layer, (self.center_x - 32, self.center_y - 85), roll_layer)
         
-        # Pitch Truck (Bottom)
+        # Pitch Truck (Bottom Center)
         pitch_layer = self.get_truck_side_layer(pitch)
-        image.paste(pitch_layer, (self.center_x - 50, self.center_y + 10), pitch_layer)
+        # Position: centered horizontally, lower half vertically
+        image.paste(pitch_layer, (self.center_x - 32, self.center_y + 25), pitch_layer)
         
         self.disp.ShowImage(image)
 
 def main():
     ui = InclinometerUI()
+    logger.info("Starting Refined Inclinometer UI...")
     
-    logger.info("Starting Inclinometer UI Demo...")
     try:
-        # Demo loop
         roll = 0
         pitch = 0
         step = 1
         while True:
             ui.update(roll, pitch)
             
-            # Simple animation
             roll += step
             pitch += step * 0.5
             
             if roll > 30 or roll < -30:
                 step *= -1
-                
-            # time.sleep(0.05) # Max framerate
+            
+            # time.sleep(0.01)
             
     except KeyboardInterrupt:
         logger.info("Exiting...")
