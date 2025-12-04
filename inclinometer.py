@@ -84,9 +84,11 @@ class InclinometerUI:
                     else: # Right side
                         val = 90 - angle
                     
-                    # Invert sign so Up is positive?
-                    # Usually Up is positive pitch/roll in these displays
-                    val = -val 
+                    # Up is positive (angle < center), Down is negative (angle > center)
+                    # val is already calculated as (center - angle), so:
+                    # Up (e.g. 260): 270 - 260 = 10 (Positive)
+                    # Down (e.g. 280): 270 - 280 = -10 (Negative)
+                    # So we just use val as is.
 
                     if abs(val) <= 30:
                         text = str(val)
