@@ -79,19 +79,16 @@ class InclinometerUI:
                 
                 if is_major:
                     # Value relative to center (270 or 90)
-                    if angle > 180: # Left side
+                    if angle > 180: # Left side (Roll)
                         val = 270 - angle
-                    else: # Right side
+                        # User wants no negatives for Roll (30-0-30)
+                        text = str(abs(val))
+                    else: # Right side (Pitch)
                         val = 90 - angle
-                    
-                    # Up is positive (angle < center), Down is negative (angle > center)
-                    # val is already calculated as (center - angle), so:
-                    # Up (e.g. 260): 270 - 260 = 10 (Positive)
-                    # Down (e.g. 280): 270 - 280 = -10 (Negative)
-                    # So we just use val as is.
+                        # User wants signed for Pitch (Positive Up, Negative Down)
+                        text = str(val)
 
                     if abs(val) <= 30:
-                        text = str(val)
                         bbox = draw.textbbox((0, 0), text, font=self.font_scale)
                         w = bbox[2] - bbox[0]
                         h = bbox[3] - bbox[1]
