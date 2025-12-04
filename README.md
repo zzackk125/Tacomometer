@@ -4,18 +4,49 @@ This project drives a 1.28inch GC9A01 SPI LCD display on a Raspberry Pi Zero to 
 
 ## Hardware Setup
 
-### Wiring (BCM Pinout)
+### Wiring
 
-| Display Pin | Raspberry Pi Pin | BCM GPIO | Function |
-| :--- | :--- | :--- | :--- |
-| VCC | 3.3V | - | Power |
-| GND | GND | - | Ground |
-| DIN | MOSI | 10 | SPI Data Input |
-| CLK | SCLK | 11 | SPI Clock |
-| CS | CE0 | 8 | Chip Select |
-| DC | GPIO 25 | 25 | Data/Command |
-| RST | GPIO 27 | 27 | Reset |
-| BL | GPIO 18 | 18 | Backlight |
+#### Display Connection (GC9A01)
+
+Connect the display to the Raspberry Pi Zero GPIO header as follows:
+
+| Wire Color | Display Pin | Function | Pi Pin | Pi GPIO |
+| :--- | :--- | :--- | :--- | :--- |
+| **Black** | GND | Ground | Pin 6 | GND |
+| **Red** | VCC | Power (3.3V/5V) | Pin 2 | 5V |
+| **White** | SCL | SPI Clock | Pin 23 | GPIO 11 (SCLK) |
+| **Yellow** | SDA | SPI Data (MOSI) | Pin 19 | GPIO 10 (MOSI) |
+| **Orange** | RES | Reset | Pin 13 | GPIO 27 |
+| **Green** | DC | Data/Command | Pin 22 | GPIO 25 |
+| **Blue** | CS | Chip Select | Pin 24 | GPIO 8 (CE0) |
+| **Purple** | BLK | Backlight | Pin 12 | GPIO 18 (PWM) |
+
+#### Raspberry Pi Zero GPIO Pinout
+
+```text
+      Raspberry Pi Zero GPIO Header
+      -----------------------------
+            3.3V [ 1] [ 2] 5V      <-- Red (VIN)
+       SDA (I2C) [ 3] [ 4] 5V
+       SCL (I2C) [ 5] [ 6] GND     <-- Black (GND)
+           GPIO4 [ 7] [ 8] TXD
+             GND [ 9] [10] RXD
+          GPIO17 [11] [12] GPIO18  <-- Purple (BLK)
+Orange (RES) --> [13] [14] GND
+          GPIO22 [15] [16] GPIO23
+            3.3V [17] [18] GPIO24
+Yellow (SDA) --> [19] [20] GND
+      MISO (SPI) [21] [22] GPIO25  <-- Green (DC)
+ White (SCL) --> [23] [24] CE0     <-- Blue (CS)
+             GND [25] [26] CE1
+          EEPROM [27] [28] EEPROM
+           GPIO5 [29] [30] GND
+           GPIO6 [31] [32] GPIO12
+          GPIO13 [33] [34] GND
+          GPIO19 [35] [36] GPIO16
+          GPIO26 [37] [38] GPIO20
+             GND [39] [40] GPIO21
+```
 
 ## Software Setup
 
