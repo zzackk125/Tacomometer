@@ -1,4 +1,3 @@
 spidev
 RPi.GPIO
 Pillow
-numpy

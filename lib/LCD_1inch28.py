@@ -314,25 +314,23 @@ class LCD_1inch28(object):
             raise ValueError('Image must be same dimensions as display \
                 ({0}x{1}).' .format(self.width, self.height))
         
-        img = self.np.asarray(Image)
-        pix = self.np.zeros((self.width, self.height, 2), dtype = self.np.uint8)
+        # Convert to RGB to ensure we have R,G,B channels
+        img = Image.convert('RGB')
+        pixels = list(img.getdata())
         
-        # RGB888 to RGB565 conversion
-        pix[...,[0]] = self.np.add(self.np.bitwise_and(img[...,[0]],0xF8),self.np.right_shift(img[...,[1]],5))
-        pix[...,[1]] = self.np.add(self.np.bitwise_and(self.np.left_shift(img[...,[1]],3),0xE0),self.np.right_shift(img[...,[2]],3))
-        
-        pix = pix.flatten().tolist()
-        
+        buffer = []
+        for r, g, b in pixels:
+            # Convert RGB888 to RGB565
+            # High byte: RRRRRGGG (R: 5 bits, G: 3 bits)
+            # Low byte:  GGGBBBBB (G: 3 bits, B: 5 bits)
+            high = (r & 0xF8) | (g >> 5)
+            low = ((g & 0x1C) << 3) | (b >> 3)
+            buffer.append(high)
+            buffer.append(low)
+            
         self.SetWindows(0, 0, self.width, self.height)
-        self.send_data_list(pix)
+        self.send_data_list(buffer)
         
     def cleanup(self):
         GPIO.cleanup()
         self.spi.close()
-
-    # Lazy load numpy to avoid hard dependency if not used immediately, 
-    # but ShowImage needs it. 
-    @property
-    def np(self):
-        import numpy
-        return numpy
