@@ -51,7 +51,10 @@ class LCD_1inch28(object):
     def send_data_list(self, data_list):
         """Send list of data via SPI"""
         GPIO.output(DC_PIN, GPIO.HIGH)
-        self.spi.writebytes(data_list)
+        # Split into chunks of 4096 bytes to avoid SPI buffer limits
+        chunk_size = 4096
+        for i in range(0, len(data_list), chunk_size):
+            self.spi.writebytes(data_list[i:i+chunk_size])
 
     def init(self):
         """Initialize the GC9A01 display"""

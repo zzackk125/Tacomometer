@@ -30,12 +30,17 @@ This project drives a 1.28inch GC9A01 SPI LCD display on a Raspberry Pi Zero to 
     ```
 
 2.  **Install Dependencies**:
+    It is recommended to use a virtual environment to avoid conflicts with system packages.
     ```bash
+    python -m venv venv
+    source venv/bin/activate
     pip install -r requirements.txt
     ```
+    *Note: If you prefer to install system-wide (not recommended), use `sudo apt install python3-spidev python3-rpi.gpio python3-pil python3-numpy` or pass `--break-system-packages` to pip.*
 
 3.  **Run the Demo**:
     ```bash
+    # Make sure your virtual environment is active
     python main.py
     ```
 
