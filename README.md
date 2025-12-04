@@ -21,23 +21,47 @@ Connect the display to the Raspberry Pi Zero GPIO header as follows:
 | **Blue** | CS | Chip Select | Pin 24 | GPIO 8 (CE0) |
 | **Purple** | BLK | Backlight | Pin 12 | GPIO 18 (PWM) |
 
+#### MPU-6050 Sensor Connection
+
+Connect the MPU-6050 accelerometer/gyroscope as follows:
+
+| Wire Color | Sensor Pin | Function | Pi Pin | Pi GPIO |
+| :--- | :--- | :--- | :--- | :--- |
+| **Red** | VCC | Power (5V) | Pin 4 | 5V |
+| **Black** | GND | Ground | Pin 9 | GND |
+| **Brown** | SCL | I2C Clock | Pin 5 | GPIO 3 (SCL) |
+| **White** | SDA | I2C Data | Pin 3 | GPIO 2 (SDA) |
+| **Blue** | AD0 | Address Select | Pin 39 | GND |
+| **Orange** | XDA | Aux Data | - | Disconnected |
+| **Yellow** | XCL | Aux Clock | - | Disconnected |
+| **Green** | INT | Interrupt | - | Disconnected |
+
+#### Calibration Button
+
+Connect a momentary push button for zeroing the inclinometer:
+
+| Connection | Pi Pin | Pi GPIO |
+| :--- | :--- | :--- |
+| Signal | Pin 7 | GPIO 4 |
+| Ground | Pin 14 | GND |
+
 #### Raspberry Pi Zero GPIO Pinout
 
 ```text
       Raspberry Pi Zero GPIO Header
       -----------------------------
-            3.3V [ 1] [ 2] 5V      <-- Red (VIN)
-       SDA (I2C) [ 3] [ 4] 5V
-       SCL (I2C) [ 5] [ 6] GND     <-- Black (GND)
-           GPIO4 [ 7] [ 8] TXD
-             GND [ 9] [10] RXD
-          GPIO17 [11] [12] GPIO18  <-- Purple (BLK)
-Orange (RES) --> [13] [14] GND
+            3.3V [ 1] [ 2] 5V      <-- Red (Display VIN)
+ White (SDA) --> [ 3] [ 4] 5V      <-- Red (Sensor VCC)
+ Brown (SCL) --> [ 5] [ 6] GND     <-- Black (Display GND)
+       GPIO4 --> [ 7] [ 8] TXD     <-- Calibration Button
+ Black (GND) --> [ 9] [10] RXD
+          GPIO17 [11] [12] GPIO18  <-- Purple (Display BLK)
+Orange (RES) --> [13] [14] GND     <-- Calibration Button GND
           GPIO22 [15] [16] GPIO23
             3.3V [17] [18] GPIO24
 Yellow (SDA) --> [19] [20] GND
-      MISO (SPI) [21] [22] GPIO25  <-- Green (DC)
- White (SCL) --> [23] [24] CE0     <-- Blue (CS)
+      MISO (SPI) [21] [22] GPIO25  <-- Green (Display DC)
+ White (SCL) --> [23] [24] CE0     <-- Blue (Display CS)
              GND [25] [26] CE1
           EEPROM [27] [28] EEPROM
            GPIO5 [29] [30] GND
@@ -52,6 +76,7 @@ Yellow (SDA) --> [19] [20] GND
 
 1.  **Enable SPI Interface**:
     Run `sudo raspi-config`, navigate to **Interface Options** -> **SPI** and enable it.
+    Also navigate to **Interface Options** -> **I2C** and enable it.
 
 2.  **Clone the Repository**:
     If you haven't already, clone this repository to your Raspberry Pi:

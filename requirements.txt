@@ -1,3 +1,6 @@
 spidev
 RPi.GPIO
+spidev
+RPi.GPIO
 Pillow
+smbus2
