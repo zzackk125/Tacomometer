@@ -180,7 +180,7 @@ class InclinometerUI:
         # Wheels
         wheel_r = 11 * s
         wheel_front_x = cx + 28 * s
-        wheel_rear_x = cx - 34 * s # Moved back
+        wheel_rear_x = cx - 36 * s # Moved back slightly more
         wheel_y = cy + 14 * s
         
         draw.ellipse((wheel_front_x - wheel_r, wheel_y - wheel_r, wheel_front_x + wheel_r, wheel_y + wheel_r), fill="#333")
@@ -197,12 +197,11 @@ class InclinometerUI:
             (cx + 42*s, cy - 6*s),       # Nose Top
             (cx + 25*s, cy - 8*s),       # Hood Rear / Windshield Base
             (cx + 10*s, cy - 24*s),      # Roof Front
-            (cx - 20*s, cy - 24*s),      # Roof Rear
-            (cx - 25*s, cy - 8*s),       # Cab Rear Base
-            (cx - 54*s, cy - 8*s),       # Bed Rear Top (Extended)
-            (cx - 54*s, wheel_y - 5*s),  # Bed Rear Bottom / Bumper (Extended)
-            (cx - 30*s, wheel_y - 5*s),  # Wheel Well Rear
-            # ... skipping wheel well detail for material look, just straight line
+            (cx - 16*s, cy - 24*s),      # Roof Rear (Shortened Cab)
+            (cx - 21*s, cy - 8*s),       # Cab Rear Base (Shortened Cab)
+            (cx - 56*s, cy - 8*s),       # Bed Rear Top (Lengthened Bed)
+            (cx - 56*s, wheel_y - 5*s),  # Bed Rear Bottom / Bumper
+            (cx - 32*s, wheel_y - 5*s),  # Wheel Well Rear
         ]
         
         # Draw main body
@@ -213,16 +212,16 @@ class InclinometerUI:
         win_poly = [
             (cx + 8*s, cy - 20*s),       # Front Top
             (cx + 20*s, cy - 8*s),       # Front Bottom (A-Pillar base)
-            (cx - 18*s, cy - 8*s),       # Rear Bottom
-            (cx - 16*s, cy - 20*s),      # Rear Top
+            (cx - 14*s, cy - 8*s),       # Rear Bottom (Shortened Cab)
+            (cx - 12*s, cy - 20*s),      # Rear Top (Shortened Cab)
         ]
         draw.polygon(win_poly, fill="#222")
         
         # B-Pillar (Body color strip)
-        draw.line((cx - 4*s, cy - 20*s, cx - 4*s, cy - 8*s), fill=COLOR_ACCENT, width=int(3*s))
+        draw.line((cx - 2*s, cy - 20*s, cx - 2*s, cy - 8*s), fill=COLOR_ACCENT, width=int(3*s))
         
         # Bed separation line
-        draw.line((cx - 25*s, cy - 8*s, cx - 25*s, wheel_y - 5*s), fill="#111", width=1)
+        draw.line((cx - 21*s, cy - 8*s, cx - 21*s, wheel_y - 5*s), fill="#111", width=1)
 
         return img.rotate(pitch_angle, resample=Image.BICUBIC)
 
