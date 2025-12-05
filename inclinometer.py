@@ -40,11 +40,15 @@ class InclinometerUI:
         # Animation state
         self.curr_roll = 0.0
         self.curr_pitch = 0.0
-        self.alpha = 0.2 # Smoothing factor (0.0 - 1.0)
+        self.alpha = 0.15 # Slightly smoother
 
-    def draw_background(self, draw):
-        """Draws the static background elements (ticks, labels)"""
-        draw.rectangle((0, 0, self.width, self.height), fill=COLOR_BG)
+        # Cache static background
+        self._bg_cache = self._create_background()
+
+    def _create_background(self):
+        """Creates the static background image once"""
+        image = Image.new("RGB", (self.width, self.height), COLOR_BG)
+        draw = ImageDraw.Draw(image)
         
         radius_outer = 119 * self.scale
         radius_inner_major = 105 * self.scale
@@ -97,6 +101,7 @@ class InclinometerUI:
                         y_txt = self.center_y + radius_text * sin_a
                         
                         draw.text((x_txt - w/2, y_txt - h/2), text, font=self.font_scale, fill=COLOR_TEXT_DIM)
+        return image
 
     def get_truck_rear_layer(self, roll_angle):
         size = 64 * self.scale
@@ -255,24 +260,16 @@ class InclinometerUI:
         self.curr_roll += (target_roll - self.curr_roll) * self.alpha
         self.curr_pitch += (target_pitch - self.curr_pitch) * self.alpha
         
-        # Draw at 2x resolution
-        image = Image.new("RGB", (self.width, self.height), COLOR_BG)
+        # Start with cached background
+        image = self._bg_cache.copy()
         draw = ImageDraw.Draw(image)
-        
-        self.draw_background(draw)
         
         # --- Pointers ---
         # Roll (Left Scale, centered at 270)
-        # +Roll -> Up (Counter-clockwise from 270) -> 270 - Roll? No, 270 is West.
-        # 0 -> 270. +10 -> 260 (Up). -10 -> 280 (Down).
-        # So Angle = 270 - Roll
         roll_angle_map = 270 - self.curr_roll
         self.draw_pointer(draw, roll_angle_map, 100 * self.scale)
         
         # Pitch (Right Scale, centered at 90)
-        # +Pitch -> Up (Clockwise from 90? No, 90 is East. 0 is North, 180 South).
-        # 0 -> 90. +10 -> 80 (Up). -10 -> 100 (Down).
-        # So Angle = 90 - Pitch
         pitch_angle_map = 90 - self.curr_pitch
         self.draw_pointer(draw, pitch_angle_map, 100 * self.scale)
         
@@ -301,8 +298,8 @@ class InclinometerUI:
         pitch_layer = self.get_truck_side_layer(self.curr_pitch)
         image.paste(pitch_layer, (self.center_x - (32 * self.scale), self.center_y + (40 * self.scale)), pitch_layer)
         
-        # Downscale for display (High Quality Anti-Aliasing)
-        final_image = image.resize((self.disp.width, self.disp.height), resample=Image.LANCZOS)
+        # Downscale for display (Use BILINEAR for speed on Pi Zero)
+        final_image = image.resize((self.disp.width, self.disp.height), resample=Image.BILINEAR)
         
         self.disp.ShowImage(final_image)
 
