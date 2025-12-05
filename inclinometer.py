@@ -237,6 +237,52 @@ class InclinometerUI:
         self.curr_roll += (target_roll - self.curr_roll) * self.alpha
         self.curr_pitch += (target_pitch - self.curr_pitch) * self.alpha
         
+        # --- Critical/Warning Logic ---
+        abs_roll = abs(self.curr_roll)
+        abs_pitch = abs(self.curr_pitch)
+        
+        # Critical Threshold (> 45 degrees) - OVERRIDE UI
+        if abs_roll > 45 or abs_pitch > 45:
+            # Determine Critical Text
+            if abs_roll > 45 and abs_pitch > 45:
+                crit_text = "CRITICAL\nPITCH/ROLL"
+            elif abs_roll > 45:
+                crit_text = "CRITICAL\nROLL"
+            else:
+                crit_text = "CRITICAL\nPITCH"
+            
+            # Flash State (Red/Black)
+            # Fast flash: 5Hz
+            is_red = int(time.time() * 10) % 2 == 0
+            
+            bg_color = "#FF0000" if is_red else "#000000"
+            text_color = "#000000" if is_red else "#FF0000"
+            
+            # Create Critical Frame
+            crit_img = Image.new("RGB", (self.width, self.height), bg_color)
+            crit_draw = ImageDraw.Draw(crit_img)
+            
+            # Draw Text Centered
+            # Use a large font (scale up the value font or load a bigger one)
+            # We'll just use the value font scaled up a bit more if possible, or just standard
+            font = self.font_value
+            
+            # Multiline text support
+            lines = crit_text.split('\n')
+            total_h = len(lines) * (30 * self.scale) # Approx height
+            current_y = self.center_y - total_h / 2
+            
+            for line in lines:
+                bbox = crit_draw.textbbox((0, 0), line, font=font)
+                w = bbox[2] - bbox[0]
+                crit_draw.text((self.center_x - w/2, current_y), line, font=font, fill=text_color)
+                current_y += 35 * self.scale
+                
+            self.disp.ShowImage(crit_img)
+            return
+
+        # Normal UI Rendering
+        
         # Start with cached background
         image = self._bg_cache.copy()
         draw = ImageDraw.Draw(image)
@@ -275,6 +321,34 @@ class InclinometerUI:
         pitch_layer = self.get_truck_side_layer(self.curr_pitch)
         image.paste(pitch_layer, (self.center_x - (32 * self.scale), self.center_y + (40 * self.scale)), pitch_layer)
         
+        # Warning Threshold (30 - 45 degrees) - OVERLAY UI
+        max_angle = max(abs_roll, abs_pitch)
+        if max_angle > 30:
+            # Calculate intensity (0.0 to 1.0)
+            # 30 deg -> 0.0
+            # 45 deg -> 1.0
+            intensity = (max_angle - 30) / 15.0
+            intensity = max(0.0, min(1.0, intensity))
+            
+            # Flash frequency increases with intensity
+            # Low: 1Hz, High: 10Hz
+            freq = 1.0 + (intensity * 9.0)
+            
+            # Sine wave for smooth flashing
+            # Result is 0.0 to 1.0
+            flash = (math.sin(time.time() * freq * 2 * math.pi) + 1) / 2
+            
+            # Max opacity is 50% (0.5) scaled by intensity
+            alpha = flash * intensity * 0.5
+            
+            if alpha > 0.01:
+                # Blend with Red
+                # Image.blend requires two images of same size/mode
+                if not hasattr(self, 'red_overlay'):
+                    self.red_overlay = Image.new("RGB", (self.width, self.height), "#FF0000")
+                
+                image = Image.blend(image, self.red_overlay, alpha)
+
         # No resizing needed (Scale = 1)
         self.disp.ShowImage(image)
 
