@@ -41,7 +41,7 @@ class InclinometerUI:
         # Animation state
         self.curr_roll = 0.0
         self.curr_pitch = 0.0
-        self.alpha = 0.15 # Slightly smoother
+        self.alpha = 0.05 # Very smooth (was 0.15)
 
         # Cache static background
         self._bg_cache = self._create_background()
@@ -281,7 +281,7 @@ class InclinometerUI:
         # --- Values & Icons Layout ---
         # Roll Value (Left)
         # Move closer to center: 25 * scale instead of 50
-        roll_text = f"{int(self.curr_roll)}°"
+        roll_text = f"{abs(int(self.curr_roll))}°"
         draw.text((self.center_x - 25 * self.scale, self.center_y), roll_text, font=self.font_value, fill=COLOR_TEXT, anchor="rm")
         draw.text((self.center_x - 25 * self.scale, self.center_y + 20 * self.scale), "ROLL", font=self.font_label, fill=COLOR_TEXT_DIM, anchor="rm")
 
