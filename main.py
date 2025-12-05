@@ -94,10 +94,15 @@ def main():
                     # Average readings
                     cal_r, cal_p = 0, 0
                     samples = 20
-                    for _ in range(samples):
+                    for i in range(samples):
                         r, p = sensor.get_angles()
                         cal_r += r
                         cal_p += p
+                        
+                        # Flash UI
+                        flash = (i // 2) % 2 == 0
+                        ui.show_calibration_screen(flash)
+                        
                         time.sleep(0.05)
                     
                     roll_offset = cal_r / samples

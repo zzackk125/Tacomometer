@@ -352,6 +352,22 @@ class InclinometerUI:
         # No resizing needed (Scale = 1)
         self.disp.ShowImage(image)
 
+    def show_calibration_screen(self, flash_state):
+        """Displays the calibration screen"""
+        # Start with cached background
+        image = self._bg_cache.copy()
+        draw = ImageDraw.Draw(image)
+        
+        # Don't draw pointers or values
+        
+        # Draw Flashing Text
+        if flash_state:
+            text = "CALIBRATING..."
+            # Use a slightly larger font if available, or just the value font
+            draw.text((self.center_x, self.center_y), text, font=self.font_value, fill=COLOR_ACCENT, anchor="mm")
+            
+        self.disp.ShowImage(image)
+
 def main():
     ui = InclinometerUI()
     logger.info("Starting Modern Inclinometer UI...")
