@@ -41,7 +41,7 @@ class InclinometerUI:
         # Animation state
         self.curr_roll = 0.0
         self.curr_pitch = 0.0
-        self.alpha = 0.05 # Very smooth (was 0.15)
+        self.alpha = 0.25 # Snappier response (was 0.05)
 
         # Cache static background
         self._bg_cache = self._create_background()

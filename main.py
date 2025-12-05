@@ -49,9 +49,9 @@ def main():
         pitch_offset = offsets.get("pitch_offset", 0.0)
         
         # Sensor Data Buffer for Moving Average
-        # Reduced back to 5 to minimize lag
-        roll_buffer = [0.0] * 5
-        pitch_buffer = [0.0] * 5
+        # Reduced to 3 for minimal lag while keeping some noise rejection
+        roll_buffer = [0.0] * 3
+        pitch_buffer = [0.0] * 3
         
         logger.info("Starting Main Loop...")
         
