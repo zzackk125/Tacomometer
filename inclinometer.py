@@ -21,7 +21,8 @@ class InclinometerUI:
     def __init__(self):
         self.disp = LCD_1inch28()
         # Super-sampling factor
-        self.scale = 2
+        # Reduced to 1 for Pi Zero performance (4x speedup)
+        self.scale = 1
         self.width = self.disp.width * self.scale
         self.height = self.disp.height * self.scale
         self.center_x = self.width // 2
@@ -298,10 +299,8 @@ class InclinometerUI:
         pitch_layer = self.get_truck_side_layer(self.curr_pitch)
         image.paste(pitch_layer, (self.center_x - (32 * self.scale), self.center_y + (40 * self.scale)), pitch_layer)
         
-        # Downscale for display (Use BILINEAR for speed on Pi Zero)
-        final_image = image.resize((self.disp.width, self.disp.height), resample=Image.BILINEAR)
-        
-        self.disp.ShowImage(final_image)
+        # No resizing needed (Scale = 1)
+        self.disp.ShowImage(image)
 
 def main():
     ui = InclinometerUI()

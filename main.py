@@ -48,6 +48,10 @@ def main():
         roll_offset = offsets.get("roll_offset", 0.0)
         pitch_offset = offsets.get("pitch_offset", 0.0)
         
+        # Sensor Data Buffer for Moving Average
+        roll_buffer = [0.0] * 5
+        pitch_buffer = [0.0] * 5
+        
         logger.info("Starting Main Loop...")
         
         while True:
@@ -57,6 +61,16 @@ def main():
             except Exception as e:
                 logger.error(f"Sensor Error: {e}")
                 continue
+
+            # Update buffers
+            roll_buffer.pop(0)
+            roll_buffer.append(raw_roll)
+            pitch_buffer.pop(0)
+            pitch_buffer.append(raw_pitch)
+            
+            # Calculate average
+            avg_roll = sum(roll_buffer) / len(roll_buffer)
+            avg_pitch = sum(pitch_buffer) / len(pitch_buffer)
 
             # Check Calibration Button (Active Low)
             if GPIO.input(BUTTON_PIN) == GPIO.LOW:
@@ -100,8 +114,8 @@ def main():
             # Apply Calibration
             # We want the displayed value to be 0 when at the calibrated position.
             # Display = Raw - Offset
-            curr_roll = raw_roll - roll_offset
-            curr_pitch = raw_pitch - pitch_offset
+            curr_roll = avg_roll - roll_offset
+            curr_pitch = avg_pitch - pitch_offset
             
             # Update UI
             ui.update(curr_roll, curr_pitch)
