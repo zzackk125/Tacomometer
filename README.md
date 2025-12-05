@@ -50,26 +50,26 @@ Connect a momentary push button for zeroing the inclinometer:
 ```text
       Raspberry Pi Zero GPIO Header
       -----------------------------
-            3.3V [ 1] [ 2] 5V      <-- Red (Display VIN)
- White (SDA) --> [ 3] [ 4] 5V      <-- Red (Sensor VCC)
- Brown (SCL) --> [ 5] [ 6] GND     <-- Black (Display GND)
-       GPIO4 --> [ 7] [ 8] TXD     <-- Calibration Button
- Black (GND) --> [ 9] [10] RXD
-          GPIO17 [11] [12] GPIO18  <-- Purple (Display BLK)
-Orange (RES) --> [13] [14] GND     <-- Calibration Button GND
-          GPIO22 [15] [16] GPIO23
-            3.3V [17] [18] GPIO24
-Yellow (SDA) --> [19] [20] GND
-      MISO (SPI) [21] [22] GPIO25  <-- Green (Display DC)
- White (SCL) --> [23] [24] CE0     <-- Blue (Display CS)
-             GND [25] [26] CE1
-          EEPROM [27] [28] EEPROM
-           GPIO5 [29] [30] GND
-           GPIO6 [31] [32] GPIO12
-          GPIO13 [33] [34] GND
-          GPIO19 [35] [36] GPIO16
-          GPIO26 [37] [38] GPIO20
-             GND [39] [40] GPIO21
+            3.3V  [ 1] [ 2] 5V      <-- Red (Display VIN)
+White (SNRSDA)--> [ 3] [ 4] 5V      <-- Red (Sensor VCC)
+Brown (SNRSCL)--> [ 5] [ 6] GND     <-- Black (Display GND)
+GPIO4 (CalButt)-->[ 7] [ 8] TXD     
+Black (SNRGND)--> [ 9] [10] RXD
+          GPIO17  [11] [12] GPIO18  <-- Purple (Display BLK)
+Orange (DSPRES)-->[13] [14] GND     
+          GPIO22  [15] [16] GPIO23
+            3.3V  [17] [18] GPIO24
+Yellow (DSPSDA)-->[19] [20] GND
+             MISO [21] [22] GPIO25  <-- Green (Display DC)
+White (DSPSCL)--> [23] [24] CE0     <-- Blue (Display CS)
+             GND  [25] [26] CE1
+           EEPROM [27] [28] EEPROM
+            GPIO5 [29] [30] GND
+            GPIO6 [31] [32] GPIO12
+           GPIO13 [33] [34] GND     <-- Calibration Button GND
+           GPIO19 [35] [36] GPIO16
+           GPIO26 [37] [38] GPIO20
+              GND [39] [40] GPIO21
 ```
 
 ## Software Setup
@@ -98,6 +98,47 @@ Yellow (SDA) --> [19] [20] GND
     ```bash
     # Make sure your virtual environment is active
     python main.py
+    ```
+
+## Run on Boot
+To have the inclinometer start automatically when the Raspberry Pi turns on, you can create a systemd service.
+
+1.  **Create the Service File**:
+    ```bash
+    sudo nano /etc/systemd/system/tacomometer.service
+    ```
+
+2.  **Paste the Following Configuration**:
+    *Adjust the paths (`/home/pi/Tacomometer`) if you cloned it somewhere else.*
+    ```ini
+    [Unit]
+    Description=Tacomometer Inclinometer Service
+    After=multi-user.target
+
+    [Service]
+    Type=simple
+    User=pi
+    WorkingDirectory=/home/pi/Tacomometer
+    ExecStart=/home/pi/Tacomometer/venv/bin/python /home/pi/Tacomometer/main.py
+    Restart=on-failure
+    RestartSec=5
+    StandardOutput=journal
+    StandardError=journal
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+
+3.  **Enable and Start the Service**:
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl enable tacomometer.service
+    sudo systemctl start tacomometer.service
+    ```
+
+4.  **Check Status**:
+    ```bash
+    sudo systemctl status tacomometer.service
     ```
 
 
