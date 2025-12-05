@@ -111,6 +111,9 @@ def main():
                     save_calibration({"roll_offset": roll_offset, "pitch_offset": pitch_offset})
                     logger.info(f"Calibration Complete! Offsets -> Roll: {roll_offset:.2f}, Pitch: {pitch_offset:.2f}")
                     
+                    # Snap UI to 0 immediately to avoid "drifting" back
+                    ui.set_angles_immediately(0, 0)
+                    
                     # Wait for release to avoid re-triggering immediately
                     while GPIO.input(BUTTON_PIN) == GPIO.LOW:
                         time.sleep(0.1)

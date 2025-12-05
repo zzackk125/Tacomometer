@@ -370,6 +370,11 @@ class InclinometerUI:
             
         self.disp.ShowImage(image)
 
+    def set_angles_immediately(self, roll, pitch):
+        """Sets the angles immediately, bypassing smoothing"""
+        self.curr_roll = roll
+        self.curr_pitch = pitch
+
 def main():
     ui = InclinometerUI()
     logger.info("Starting Modern Inclinometer UI...")
