@@ -60,26 +60,42 @@ def main():
 
             # Check Calibration Button (Active Low)
             if GPIO.input(BUTTON_PIN) == GPIO.LOW:
-                logger.info("Calibration Button Pressed!")
-                # Debounce
-                time.sleep(0.2)
-                # Average a few readings for better calibration
-                cal_r, cal_p = 0, 0
-                for _ in range(10):
-                    r, p = sensor.get_angles()
-                    cal_r += r
-                    cal_p += p
-                    time.sleep(0.01)
+                logger.info("Button pressed... Hold for 2 seconds to calibrate.")
+                start_time = time.time()
+                held_long_enough = False
                 
-                roll_offset = cal_r / 10.0
-                pitch_offset = cal_p / 10.0
-                
-                save_calibration({"roll_offset": roll_offset, "pitch_offset": pitch_offset})
-                logger.info(f"New Offsets -> Roll: {roll_offset:.2f}, Pitch: {pitch_offset:.2f}")
-                
-                # Wait for button release
+                # Wait while button is held
                 while GPIO.input(BUTTON_PIN) == GPIO.LOW:
+                    if time.time() - start_time > 2.0:
+                        held_long_enough = True
+                        break
                     time.sleep(0.1)
+                
+                if held_long_enough:
+                    logger.info("Calibrating...")
+                    # Wait a tiny bit for any vibration to settle
+                    time.sleep(0.5)
+                    
+                    # Average readings
+                    cal_r, cal_p = 0, 0
+                    samples = 20
+                    for _ in range(samples):
+                        r, p = sensor.get_angles()
+                        cal_r += r
+                        cal_p += p
+                        time.sleep(0.05)
+                    
+                    roll_offset = cal_r / samples
+                    pitch_offset = cal_p / samples
+                    
+                    save_calibration({"roll_offset": roll_offset, "pitch_offset": pitch_offset})
+                    logger.info(f"Calibration Complete! Offsets -> Roll: {roll_offset:.2f}, Pitch: {pitch_offset:.2f}")
+                    
+                    # Wait for release to avoid re-triggering immediately
+                    while GPIO.input(BUTTON_PIN) == GPIO.LOW:
+                        time.sleep(0.1)
+                else:
+                    logger.info("Calibration cancelled (button released too early).")
 
             # Apply Calibration
             # We want the displayed value to be 0 when at the calibrated position.
