@@ -33,10 +33,12 @@ class InclinometerUI:
             self.font_value = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28 * self.scale)
             self.font_label = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 10 * self.scale)
             self.font_scale = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 10 * self.scale)
+            self.font_calib = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16 * self.scale)
         except IOError:
             self.font_value = ImageFont.load_default()
             self.font_label = ImageFont.load_default()
             self.font_scale = ImageFont.load_default()
+            self.font_calib = ImageFont.load_default()
 
         # Animation state
         self.curr_roll = 0.0
@@ -363,8 +365,8 @@ class InclinometerUI:
         # Draw Flashing Text
         if flash_state:
             text = "CALIBRATING..."
-            # Use a slightly larger font if available, or just the value font
-            draw.text((self.center_x, self.center_y), text, font=self.font_value, fill=COLOR_ACCENT, anchor="mm")
+            # Use smaller font to fit within scale marks
+            draw.text((self.center_x, self.center_y), text, font=self.font_calib, fill=COLOR_ACCENT, anchor="mm")
             
         self.disp.ShowImage(image)
 
