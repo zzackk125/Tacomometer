@@ -24,7 +24,7 @@ class LCD_1inch28(object):
         
         # Initialize SPI
         self.spi = spidev.SpiDev(0, 0)
-        self.spi.max_speed_hz = 40000000
+        self.spi.max_speed_hz = 60000000
         self.spi.mode = 0b00
         
         self.init()

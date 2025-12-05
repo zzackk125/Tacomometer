@@ -49,9 +49,9 @@ def main():
         pitch_offset = offsets.get("pitch_offset", 0.0)
         
         # Sensor Data Buffer for Moving Average
-        # Increased to 10 for super smooth readings
-        roll_buffer = [0.0] * 10
-        pitch_buffer = [0.0] * 10
+        # Reduced back to 5 to minimize lag
+        roll_buffer = [0.0] * 5
+        pitch_buffer = [0.0] * 5
         
         logger.info("Starting Main Loop...")
         
@@ -122,10 +122,8 @@ def main():
             ui.update(curr_roll, curr_pitch)
             
             # Limit frame rate (approx 30 FPS)
-            # time.sleep(0.033) 
-            # Actually, the UI update (drawing + SPI) takes time, so we might not need explicit sleep.
-            # But a small sleep yields CPU.
-            time.sleep(0.01)
+            # Removed sleep to maximize FPS
+            # time.sleep(0.01)
 
     except KeyboardInterrupt:
         logger.info("Exiting...")
