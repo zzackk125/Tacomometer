@@ -45,6 +45,9 @@ class InclinometerUI:
 
         # Cache static background
         self._bg_cache = self._create_background()
+        
+        # Pre-render truck rotations for performance
+        self._pre_render_trucks()
 
     def _create_background(self):
         """Creates the static background image once"""
@@ -104,7 +107,21 @@ class InclinometerUI:
                         draw.text((x_txt - w/2, y_txt - h/2), text, font=self.font_scale, fill=COLOR_TEXT_DIM)
         return image
 
-    def get_truck_rear_layer(self, roll_angle):
+    def _pre_render_trucks(self):
+        """Pre-renders rotated truck images for -45 to +45 degrees"""
+        self.truck_rear_cache = {}
+        self.truck_side_cache = {}
+        
+        # Generate base images once
+        base_rear = self._generate_base_rear()
+        base_side = self._generate_base_side()
+        
+        # Pre-rotate for expected range (+/- 45 degrees)
+        for angle in range(-45, 46):
+            self.truck_rear_cache[angle] = base_rear.rotate(-angle, resample=Image.BICUBIC)
+            self.truck_side_cache[angle] = base_side.rotate(angle, resample=Image.BICUBIC)
+
+    def _generate_base_rear(self):
         size = 64 * self.scale
         img = Image.new("RGBA", (size, size), (0,0,0,0))
         draw = ImageDraw.Draw(img)
@@ -113,67 +130,43 @@ class InclinometerUI:
         s = 0.6 * self.scale
         
         # 2006 Tacoma Rear View
-        
-        # Tires (Wider stance)
+        # Tires
         tire_w, tire_h = 12 * s, 22 * s
         tire_offset_x = 30 * s
         tire_offset_y = 10 * s
-        
         draw.rectangle((cx - tire_offset_x - tire_w, cy + tire_offset_y, cx - tire_offset_x, cy + tire_offset_y + tire_h), fill="#333")
         draw.rectangle((cx + tire_offset_x, cy + tire_offset_y, cx + tire_offset_x + tire_w, cy + tire_offset_y + tire_h), fill="#333")
-        
-        # Axle/Diff
+        # Axle
         draw.rectangle((cx - tire_offset_x, cy + tire_offset_y + tire_h//2 - 2*s, cx + tire_offset_x, cy + tire_offset_y + tire_h//2 + 2*s), fill="#222")
-        # Diff pumpkin
         draw.ellipse((cx - 4*s, cy + tire_offset_y + tire_h//2 - 4*s, cx + 4*s, cy + tire_offset_y + tire_h//2 + 4*s), fill="#222")
-
-        # Body (Bed/Tailgate)
+        # Body
         body_w, body_h = 64 * s, 28 * s
         body_top = cy - body_h//2
         body_bottom = cy + body_h//2
-        
-        # Main Box
         draw.rectangle((cx - body_w//2, body_top, cx + body_w//2, body_bottom), fill=COLOR_ACCENT)
-        
-        # Fender Flares (The "Tacoma" look)
+        # Flares
         flare_w = 6 * s
         draw.polygon([(cx - body_w//2, body_top), (cx - body_w//2 - flare_w, body_top + 5*s), (cx - body_w//2 - flare_w, body_bottom), (cx - body_w//2, body_bottom)], fill=COLOR_ACCENT)
         draw.polygon([(cx + body_w//2, body_top), (cx + body_w//2 + flare_w, body_top + 5*s), (cx + body_w//2 + flare_w, body_bottom), (cx + body_w//2, body_bottom)], fill=COLOR_ACCENT)
-
-        # Cabin (Rear window)
+        # Cabin
         cab_w_bottom = 56 * s
         cab_w_top = 48 * s
         cab_h = 24 * s
         cab_bottom = body_top
         cab_top = cab_bottom - cab_h
-        
-        draw.polygon([
-            (cx - cab_w_top//2, cab_top),
-            (cx + cab_w_top//2, cab_top),
-            (cx + cab_w_bottom//2, cab_bottom),
-            (cx - cab_w_bottom//2, cab_bottom)
-        ], fill=COLOR_ACCENT)
-        
-        # Rear Window (Dark Grey)
+        draw.polygon([(cx - cab_w_top//2, cab_top), (cx + cab_w_top//2, cab_top), (cx + cab_w_bottom//2, cab_bottom), (cx - cab_w_bottom//2, cab_bottom)], fill=COLOR_ACCENT)
+        # Window
         win_w_top = 44 * s
         win_w_bottom = 50 * s
         win_h = 14 * s
         win_top = cab_top + 4*s
-        
-        draw.polygon([
-            (cx - win_w_top//2, win_top),
-            (cx + win_w_top//2, win_top),
-            (cx + win_w_bottom//2, win_top + win_h),
-            (cx - win_w_bottom//2, win_top + win_h)
-        ], fill="#222")
-        
+        draw.polygon([(cx - win_w_top//2, win_top), (cx + win_w_top//2, win_top), (cx + win_w_bottom//2, win_top + win_h), (cx - win_w_bottom//2, win_top + win_h)], fill="#222")
         # Bumper
         bumper_h = 6 * s
         draw.rectangle((cx - body_w//2 - 2*s, body_bottom, cx + body_w//2 + 2*s, body_bottom + bumper_h), fill="#555")
+        return img
 
-        return img.rotate(-roll_angle, resample=Image.BICUBIC)
-
-    def get_truck_side_layer(self, pitch_angle):
+    def _generate_base_side(self):
         size = 64 * self.scale
         img = Image.new("RGBA", (size, size), (0,0,0,0))
         draw = ImageDraw.Draw(img)
@@ -181,55 +174,38 @@ class InclinometerUI:
         cx, cy = size//2, size//2
         s = 0.6 * self.scale
         
-        # 2006 Tacoma Double Cab Side View (Long Bed)
-        
-        # Wheels
+        # 2006 Tacoma Side View
         wheel_r = 11 * s
         wheel_front_x = cx + 28 * s
-        wheel_rear_x = cx - 36 * s # Moved back slightly more
+        wheel_rear_x = cx - 36 * s
         wheel_y = cy + 14 * s
-        
         draw.ellipse((wheel_front_x - wheel_r, wheel_y - wheel_r, wheel_front_x + wheel_r, wheel_y + wheel_r), fill="#333")
         draw.ellipse((wheel_rear_x - wheel_r, wheel_y - wheel_r, wheel_rear_x + wheel_r, wheel_y + wheel_r), fill="#333")
-        
-        # Body Line (Chassis/Rockers)
         draw.rectangle((wheel_rear_x, wheel_y - 8*s, wheel_front_x, wheel_y), fill="#222")
-
-        # Main Body Shape
-        # Nose, Hood, Windshield, Roof, Rear Window, Bed
-        
         poly = [
-            (cx + 42*s, wheel_y - 5*s),  # Front Bumper Bottom
-            (cx + 42*s, cy - 6*s),       # Nose Top
-            (cx + 25*s, cy - 8*s),       # Hood Rear / Windshield Base
-            (cx + 10*s, cy - 24*s),      # Roof Front
-            (cx - 16*s, cy - 24*s),      # Roof Rear (Shortened Cab)
-            (cx - 21*s, cy - 8*s),       # Cab Rear Base (Shortened Cab)
-            (cx - 56*s, cy - 8*s),       # Bed Rear Top (Lengthened Bed)
-            (cx - 56*s, wheel_y - 5*s),  # Bed Rear Bottom / Bumper
-            (cx - 32*s, wheel_y - 5*s),  # Wheel Well Rear
+            (cx + 42*s, wheel_y - 5*s), (cx + 42*s, cy - 6*s), (cx + 25*s, cy - 8*s),
+            (cx + 10*s, cy - 24*s), (cx - 16*s, cy - 24*s), (cx - 21*s, cy - 8*s),
+            (cx - 56*s, cy - 8*s), (cx - 56*s, wheel_y - 5*s), (cx - 32*s, wheel_y - 5*s),
         ]
-        
-        # Draw main body
         draw.polygon(poly, fill=COLOR_ACCENT)
-        
-        # Windows (Double Cab)
-        # Side windows are usually black/dark
         win_poly = [
-            (cx + 8*s, cy - 20*s),       # Front Top
-            (cx + 20*s, cy - 8*s),       # Front Bottom (A-Pillar base)
-            (cx - 14*s, cy - 8*s),       # Rear Bottom (Shortened Cab)
-            (cx - 12*s, cy - 20*s),      # Rear Top (Shortened Cab)
+            (cx + 8*s, cy - 20*s), (cx + 20*s, cy - 8*s),
+            (cx - 14*s, cy - 8*s), (cx - 12*s, cy - 20*s),
         ]
         draw.polygon(win_poly, fill="#222")
-        
-        # B-Pillar (Body color strip)
         draw.line((cx - 2*s, cy - 20*s, cx - 2*s, cy - 8*s), fill=COLOR_ACCENT, width=int(3*s))
-        
-        # Bed separation line
         draw.line((cx - 21*s, cy - 8*s, cx - 21*s, wheel_y - 5*s), fill="#111", width=1)
+        return img
 
-        return img.rotate(pitch_angle, resample=Image.BICUBIC)
+    def get_truck_rear_layer(self, roll_angle):
+        # Clamp angle to cache range
+        angle = int(max(-45, min(45, roll_angle)))
+        return self.truck_rear_cache.get(angle, self.truck_rear_cache[0])
+
+    def get_truck_side_layer(self, pitch_angle):
+        # Clamp angle to cache range
+        angle = int(max(-45, min(45, pitch_angle)))
+        return self.truck_side_cache.get(angle, self.truck_side_cache[0])
 
     def draw_pointer(self, draw, angle_deg, radius):
         """Draws a triangular pointer at the given angle and radius"""

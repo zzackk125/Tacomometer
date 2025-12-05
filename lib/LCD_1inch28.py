@@ -321,15 +321,10 @@ class LCD_1inch28(object):
         img = Image.convert('RGB')
         pixels = list(img.getdata())
         
-        buffer = []
-        for r, g, b in pixels:
-            # Convert RGB888 to RGB565
-            # High byte: RRRRRGGG (R: 5 bits, G: 3 bits)
-            # Low byte:  GGGBBBBB (G: 3 bits, B: 5 bits)
-            high = (r & 0xF8) | (g >> 5)
-            low = ((g & 0x1C) << 3) | (b >> 3)
-            buffer.append(high)
-            buffer.append(low)
+        # Optimize conversion using list comprehension (faster than loop)
+        # High byte: RRRRRGGG (R: 5 bits, G: 3 bits)
+        # Low byte:  GGGBBBBB (G: 3 bits, B: 5 bits)
+        buffer = [c for r, g, b in pixels for c in ((r & 0xF8) | (g >> 5), ((g & 0x1C) << 3) | (b >> 3))]
             
         self.SetWindows(0, 0, self.width, self.height)
         self.send_data_list(buffer)
