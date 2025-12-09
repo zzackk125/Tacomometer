@@ -1,6 +1,7 @@
-__pycache__/
-*.pyc
-.DS_Store
+ESP32C6 Demo files/
+.pio/
 .vscode/
-env/
-venv/
+build/
+*.elf
+*.bin
+*.hex
