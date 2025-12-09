@@ -1,3 +1,10 @@
+/*
+ * File: imu_driver.cpp
+ * Description: IMU (QMI8658) Driver Implementation
+ * Author: zzackk125
+ * License: MIT
+ */
+
 #include "imu_driver.h"
 #include "board_config.h"
 

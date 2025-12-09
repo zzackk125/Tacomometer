@@ -1,3 +1,10 @@
+/*
+ * File: lvgl_port.c
+ * Description: LVGL Display Porting Implementation
+ * Author: zzackk125
+ * License: MIT
+ */
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "lvgl_port.h"

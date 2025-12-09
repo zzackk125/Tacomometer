@@ -1,6 +1,8 @@
 /*
  * Tacomometer - LVGL Version
  * Target: Waveshare ESP32-C6 Touch AMOLED 1.43
+ * Author: zzackk125
+ * License: MIT
  */
 
 #include <Arduino.h>
@@ -23,14 +25,17 @@ void setup() {
 
     // 2. Enable Display Power (TCA9554 IO Expander)
     Serial.println("Powering up display...");
-    Wire.beginTransmission(0x20);
-    Wire.write(0x03); 
-    Wire.write(0xBF); // Pin 6 Output
+    
+    // Set Pin 6 to Output (0 in Config Register)
+    Wire.beginTransmission(IO_EXPANDER_ADDR);
+    Wire.write(IO_EXPANDER_CONFIG_REG); 
+    Wire.write(~IO_EXPANDER_PIN_6_MASK); // 0xBF: Pin 6 Low (Output), others High (Input) default
     Wire.endTransmission();
     
-    Wire.beginTransmission(0x20);
-    Wire.write(0x01); 
-    Wire.write(0x40); // Pin 6 High
+    // Set Pin 6 High (Power On)
+    Wire.beginTransmission(IO_EXPANDER_ADDR);
+    Wire.write(IO_EXPANDER_OUTPUT_REG); 
+    Wire.write(IO_EXPANDER_PIN_6_MASK); 
     Wire.endTransmission();
     
     delay(200);
@@ -65,13 +70,8 @@ void loop() {
     lvgl_port_lock(-1);
     updateUI(roll, pitch);
     
-    // Check for calibration trigger
+    // Check for calibration trigger (IMU flat detection or button)
     if (isCalibrating()) {
-        // We only want to zero once per trigger, but isCalibrating stays true for 2s for the message.
-        // Simple hack: Zero continuously or use a flag. 
-        // Better: Zero immediately when detected.
-        // Let's assume zeroIMU handles it or we do it once.
-        // Actually, let's add zeroIMU() to imu_driver and call it.
         zeroIMU(); 
     }
     

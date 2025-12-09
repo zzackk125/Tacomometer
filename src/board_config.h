@@ -29,3 +29,8 @@
 #define LVGL_TASK_MIN_DELAY_MS 1
 #define LVGL_TASK_STACK_SIZE   (4 * 1024)
 #define LVGL_TASK_PRIORITY     2
+// --- IO EXPANDER (TCA9554) ---
+#define IO_EXPANDER_ADDR       0x20
+#define IO_EXPANDER_CONFIG_REG 0x03
+#define IO_EXPANDER_OUTPUT_REG 0x01
+#define IO_EXPANDER_PIN_6_MASK 0x40 // Display Power Control

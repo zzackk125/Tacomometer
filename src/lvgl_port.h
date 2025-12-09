@@ -1,3 +1,10 @@
+/*
+ * File: lvgl_port.h
+ * Description: LVGL Display Porting Interface
+ * Author: zzackk125
+ * License: MIT
+ */
+
 #pragma once
 
 #include "driver/i2c_master.h"

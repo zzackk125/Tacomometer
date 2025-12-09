@@ -1,7 +1,8 @@
-ESP32C6 Demo files/
 .pio/
 .vscode/
 build/
 *.elf
 *.bin
 *.hex
+__pycache__/
+*.pyc

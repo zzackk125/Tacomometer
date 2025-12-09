@@ -1,3 +1,10 @@
+/*
+ * File: ui.cpp
+ * Description: UI Logic Implementation
+ * Author: zzackk125
+ * License: MIT
+ */
+
 #include "ui.h"
 #include "assets.h"
 #include <stdio.h>

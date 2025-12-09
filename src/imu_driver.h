@@ -1,3 +1,10 @@
+/*
+ * File: imu_driver.h
+ * Description: IMU (QMI8658) Driver Interface
+ * Author: zzackk125
+ * License: MIT
+ */
+
 #pragma once
 
 #include <Arduino.h>

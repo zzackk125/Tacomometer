@@ -1,56 +1,87 @@
-# Tacomometer (ESP32-C6 Edition)
+# Tacomometer
 
-A digital inclinometer for off-road vehicles, ported to the **Waveshare ESP32-C6 Touch AMOLED 1.43**.
+**The Tacoma-Themed Digital Inclinometer**
 
-## Hardware
-- **Board**: Waveshare ESP32-C6 Touch AMOLED 1.43
-- **Display**: 1.43" AMOLED (466x466)
-- **IMU**: QMI8658 (6-axis Accelerometer/Gyro)
-- **Touch**: FT6146/FT6236 Capacitive Touch
+A high-performance digital inclinometer for off-road enthusiasts, designed with the aesthetic of the 2nd Gen Toyota Tacoma. Built for the **Waveshare ESP32-C6-Touch-AMOLED-1.43** circular display, it features smooth 60FPS animations, accurate pitch and roll tracking, and customizable alerts.
+
+![Tacomometer Demo](assets/demo.gif) *(Add a demo gif/image here if available)*
 
 ## Features
-- **Real-time Roll & Pitch**: Smooth visualization of vehicle angle.
-- **High-Res Graphics**: Custom rendered truck sprites (Rear & Side views).
-- **Calibration**: Touch and hold screen for 2 seconds to zero the gauges.
-- **Critical Alerts**: Visual warning when angles exceed safe limits (>45°).
 
-## Setup Instructions
+- **Retro-Modern Design:** Inspired by the 2nd Gen Tacoma instrument cluster.
+- **High Performance:** Leveraging LVGL v9 for buttery smooth gauge movement (20Hz+ update rate).
+- **Dual Axis:** Real-time Pitch and Roll monitoring.
+- **Max Angle Memory:** Tracks and displays the maximum angles reached during a session.
+- **Dynamic Alerts:**
+  - **Warning (Yellow Pulse):** > 30°
+  - **Critical (Red Flashing):** > 50°
+- **Touch Calibration:** Long-press the screen to zero the inclinometer on a flat surface.
 
-### 1. Arduino IDE Setup
-1.  Install **Arduino IDE** (2.0+ recommended).
-2.  Add ESP32 Board Manager URL:
-    `https://espressif.github.io/arduino-esp32/package_esp32_index.json`
-3.  Install **ESP32** board package (Version 3.0+).
-4.  **Tools Menu Configuration**:
-    Configure your "Tools" menu exactly as follows:
-    - **Board**: `ESP32C6 Dev Module`
-    - **USB CDC On Boot**: `Enabled` (Crucial for Serial Monitor)
-    - **CPU Frequency**: `160MHz (WiFi)`
-    - **Core Debug Level**: `None`
-    - **Erase All Flash Before Sketch Upload**: `Disabled`
-    - **Flash Frequency**: `80MHz`
-    - **Flash Mode**: `QIO`
-    - **Flash Size**: `16MB (128Mb)`
-    - **JTAG Adapter**: `Disabled`
-    - **Partition Scheme**: `16M Flash (3MB APP/9.9MB FATFS)`
-    - **Upload Speed**: `921600`
-    - **Zigbee Mode**: `Disabled`
+## Hardware Requirements
 
-### 2. Required Libraries
-Install the following via Arduino Library Manager:
-- **Arduino_GFX_Library** (by Moononournation) - *Check for latest version supporting CO5300*.
-- **Wire** (Built-in).
+- **Microcontroller & Display:** [Waveshare ESP32-C6-Touch-AMOLED-1.43](https://www.waveshare.com/wiki/ESP32-C6-Touch-AMOLED-1.43)
+- **IMU Sensor:** QMI8658 (or similar 6-axis IMU supported by the driver).
+- **Power:** 5V USB-C or 3.7V LiPo Battery.
 
-### 3. Compilation
-1.  Open `Tacomometer.ino`.
-2.  Connect the board via USB-C.
-3.  Select the correct COM port.
-4.  Click **Upload**.
+## Wiring
+
+The default configuration uses the onboard I2C pins for the external IMU.
+
+| Sensor Pin | ESP32 Pin | Description |
+| :--- | :--- | :--- |
+| **VCC** | 3.3V | Power |
+| **GND** | GND | Ground |
+| **SDA** | GPIO 18 | I2C Data |
+| **SCL** | GPIO 8 | I2C Clock |
+
+## Installation
+
+### Prerequisites
+
+1. **VS Code** with **PlatformIO** (Recommended) OR **Arduino IDE**.
+2. **Drivers:** Ensure you have the USB-Serial drivers for the ESP32-C6.
+
+### Arduino IDE Setup
+
+1. Install the **ESP32** board package (v3.0.0+ for ESP32-C6 support) in Board Manager.
+2. Select Board: `ESP32C6 Dev Module`.
+3. Enable "USB CDC On Boot".
+4. Install Required Libraries:
+   - `lvgl` (v9.x)
+   - `Arduino_GFX_Library` (if used for low-level bus)
+   - `SensorQMI8658` (or your specific IMU library)
+5. Open `Tacomometer.ino` and upload.
+
+### Configuration
+
+All pin definitions and hardware settings are located in `src/board_config.h`.
 
 ## Usage
-- **Power On**: The device will boot and show the inclinometer interface.
-- **Calibration**: Park on a level surface. Touch and hold anywhere on the screen for **2 seconds** until "CALIBRATED!" appears.
-- **Mounting**: Mount the device securely on your dashboard. Ensure the orientation matches the truck graphics (Rear view = Roll, Side view = Pitch).
 
-## Legacy Code
-The original Python code for Raspberry Pi Zero is preserved in the `old/` directory for reference.
+1. **Mounting:** Mount the device securely in your vehicle.
+2. **Power On:** Connect to USB or battery.
+3. **Calibration:**
+   - Park on a flat, level surface.
+   - **Long Press** anywhere on the screen for 2 seconds.
+   - The status text will show "CALIBRATING..." and the gauges will reset to 0°.
+4. **Drive:** The max indicators (red dots) will track your most extreme angles.
+
+## Customization
+
+### Customization
+
+#### Assets
+The project uses python scripts to generate C arrays from images.
+1. Place your images in `assets/`.
+2. Run `python scripts/generate_assets.py`.
+3. Recompile the project.
+
+**Note:** The folder `assets_backup/` contains the default assets (C arrays) for the project. These can be restored if experimental asset generation fails or if you want to revert to the original look without regenerating.
+
+## License
+
+This project is open-source and licensed under the [MIT License](LICENSE).
+
+## Credits
+- Built with [LVGL](https://lvgl.io/).
+- Developed by **zzackk125**.

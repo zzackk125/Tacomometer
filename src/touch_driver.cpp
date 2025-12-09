@@ -1,3 +1,10 @@
+/*
+ * File: touch_driver.cpp
+ * Description: Touch Screen Driver Implementation
+ * Author: zzackk125
+ * License: MIT
+ */
+
 #include "touch_driver.h"
 #include "board_config.h"
 
