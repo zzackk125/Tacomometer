@@ -34,3 +34,6 @@
 #define IO_EXPANDER_CONFIG_REG 0x03
 #define IO_EXPANDER_OUTPUT_REG 0x01
 #define IO_EXPANDER_PIN_6_MASK 0x40 // Display Power Control
+
+// --- BUTTONS ---
+#define BOOT_BUTTON_PIN        9 // ESP32-C6 Boot Button

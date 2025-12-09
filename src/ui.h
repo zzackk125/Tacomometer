@@ -12,3 +12,6 @@
 void initUI();
 void updateUI(float roll, float pitch);
 bool isCalibrating();
+void showToast(const char* text);
+void hideToast();
+void triggerCalibrationUI();

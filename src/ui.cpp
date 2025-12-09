@@ -6,6 +6,7 @@
  */
 
 #include "ui.h"
+#include "web_server.h" // For startAPMode
 #include "assets.h"
 #include <stdio.h>
 #include "imu_driver.h" // For calibration access if needed, or we pass callback
@@ -44,26 +45,71 @@ static Preferences ui_prefs;
 static bool is_calibrating = false;
 static uint32_t calibration_start_time = 0;
 
-// Calibration Callback
+// Toast Object
+static lv_obj_t * toast_obj = NULL;
+
+void showToast(const char* text) {
+    if (toast_obj == NULL) {
+        toast_obj = lv_label_create(lv_layer_top());
+        lv_obj_set_style_bg_color(toast_obj, lv_color_hex(0x222222), 0);
+        lv_obj_set_style_bg_opa(toast_obj, 240, 0); 
+        lv_obj_set_style_text_color(toast_obj, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_pad_all(toast_obj, 20, 0); // Bigger padding
+        lv_obj_set_style_radius(toast_obj, 10, 0);
+        lv_obj_set_style_text_font(toast_obj, &lv_font_montserrat_28, 0); // Bigger Font
+        lv_obj_set_style_text_align(toast_obj, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_width(toast_obj, 300); // Fixed width for multiline
+        lv_obj_align(toast_obj, LV_ALIGN_CENTER, 0, 0); // Center screen
+        lv_obj_add_flag(toast_obj, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(toast_obj, LV_OBJ_FLAG_CLICKABLE); // Allow click to dismiss
+        lv_obj_add_event_cb(toast_obj, [](lv_event_t* e){ 
+            lv_obj_add_flag((lv_obj_t*)lv_event_get_target(e), LV_OBJ_FLAG_HIDDEN); 
+        }, LV_EVENT_CLICKED, NULL);
+    }
+    
+    lv_label_set_text(toast_obj, text);
+    lv_obj_clear_flag(toast_obj, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(toast_obj);
+}
+
+void hideToast() {
+    if (toast_obj) {
+        lv_obj_add_flag(toast_obj, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+// Gesture State
+static int tap_count = 0;
+static uint32_t last_tap_time = 0;
+
+// Public function to trigger calibration
+void triggerCalibrationUI() {
+    is_calibrating = true;
+    calibration_start_time = lv_tick_get();
+    lv_label_set_text(label_status, "CALIBRATING...");
+    lv_obj_clear_flag(label_status, LV_OBJ_FLAG_HIDDEN);
+    
+    // Reset Max Values
+    max_roll_left = 0;
+    max_roll_right = 0;
+    max_pitch_fwd = 0;
+    max_pitch_back = 0;
+    
+    ui_prefs.putFloat("m_rl", 0);
+    ui_prefs.putFloat("m_rr", 0);
+    ui_prefs.putFloat("m_pf", 0);
+    ui_prefs.putFloat("m_pb", 0);
+}
+
+// Calibration & Gesture Callback
 static void calibration_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
-    if(code == LV_EVENT_LONG_PRESSED) {
-        // Trigger Calibration
-        is_calibrating = true;
-        calibration_start_time = lv_tick_get();
-        lv_label_set_text(label_status, "CALIBRATING...");
-        lv_obj_clear_flag(label_status, LV_OBJ_FLAG_HIDDEN);
-        
-        // Reset Max Values
-        max_roll_left = 0;
-        max_roll_right = 0;
-        max_pitch_fwd = 0;
-        max_pitch_back = 0;
-        
-        ui_prefs.putFloat("m_rl", 0);
-        ui_prefs.putFloat("m_rr", 0);
-        ui_prefs.putFloat("m_pf", 0);
-        ui_prefs.putFloat("m_pb", 0);
+    
+    if (code == LV_EVENT_LONG_PRESSED) {
+        triggerCalibrationUI();
+    }
+    else if (code == LV_EVENT_CLICKED) {
+        // Gesture removed in favor of physical button
     }
 }
 
@@ -95,7 +141,7 @@ void initUI() {
     lv_image_set_src(bg_img, &img_background);
     lv_obj_center(bg_img);
     lv_obj_add_flag(bg_img, LV_OBJ_FLAG_CLICKABLE); // Enable input for long press
-    lv_obj_add_event_cb(bg_img, calibration_event_cb, LV_EVENT_LONG_PRESSED, NULL);
+    lv_obj_add_event_cb(bg_img, calibration_event_cb, LV_EVENT_ALL, NULL);
 
     // 2. Roll Truck (Top Center)
     truck_roll_img = lv_image_create(scr);

@@ -23,9 +23,16 @@ A high-performance digital inclinometer for off-road enthusiasts, designed with 
 - **IMU Sensor:** QMI8658 (or similar 6-axis IMU supported by the driver).
 - **Power:** 5V USB-C or 3.7V LiPo Battery.
 
-## Wiring
+## remote Control (Offline Mobile App)
 
-The default configuration uses the onboard I2C pins for the external IMU.
+The device features a built-in Wi-Fi Access Point and Web Interface for remote calibration and settings.
+
+### How to Connect
+1.  **Activate:** Press and **HOLD** the BOOT button (on the back/side) for **2 seconds**.
+2.  **Pair:** A specific "Ready to Pair" toast message will appear. Connect your phone to the Wi-Fi network: `Tacomometer`.
+3.  **Control:** Open a web browser and navigate to `http://192.168.4.1`.
+4.  **Calibrate:** Use the "Calibrate" button on the mobile interface to zero the inclinometer remotely.
+5.  **Disconnect:** Press the BOOT button again (short press) or use the "Disconnect" button in the app to turn off Wi-Fi.
 
 | Sensor Pin | ESP32 Pin | Description |
 | :--- | :--- | :--- |
