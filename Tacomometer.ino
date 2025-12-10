@@ -20,7 +20,16 @@ void setup() {
     delay(1000);
     Serial.println("Starting Tacomometer (LVGL)...");
 
-    // 1. Init I2C for IO Expander, Touch, and IMU
+    // 0. Check Boot Button for Factory Reset (Safe Mode)
+    pinMode(BOOT_BUTTON_PIN, INPUT_PULLUP);
+    if (digitalRead(BOOT_BUTTON_PIN) == LOW) {
+        Serial.println("Button Pressed at Boot -> Factory Reset...");
+        delay(100); // Debounce
+        // We need UI initialized first to reset UI preferences?
+        // ui_prefs is in ui.cpp. 
+        // We can init NVS manually or just init UI then reset.
+        // Let's Init everything then Reset.
+    }
     Wire.begin(ESP32_SDA_NUM, ESP32_SCL_NUM);
     delay(100);
 
@@ -57,7 +66,38 @@ void setup() {
     // 6. Init UI
     Serial.println("Initializing UI...");
     lvgl_port_lock(-1);
+
     initUI();
+    
+    // 6b. FACTORY RESET CHECK (Dedicated Window)
+    // Hold BOOT button during first 2 seconds to reset
+    Serial.println("Press BOOT button now to Factory Reset...");
+    unsigned long boot_check_start = millis();
+    bool reset_triggered = false;
+    
+    // Initial check + small window
+    while(millis() - boot_check_start < 2000) {
+        if (digitalRead(BOOT_BUTTON_PIN) == LOW) {
+            // Button is pressed
+            delay(50); // Debounce
+            if (digitalRead(BOOT_BUTTON_PIN) == LOW) {
+                 Serial.println("FACTORY RESET TRIGGERED!");
+                 showToast("Resetting...");
+                 // Wait a moment for toast to render
+                 lv_timer_handler(); // Force UI update
+                 delay(500); 
+                 resetSettings(); // WWill wipe and Restart
+                 reset_triggered = true;
+                 break;
+            }
+        }
+        delay(10);
+    }
+    
+    if (!reset_triggered) {
+         Serial.println("Boot Continues...");
+    }
+    
     lvgl_port_unlock();
     
     // 7. Init Web Server (Standby)
@@ -72,6 +112,10 @@ bool btn_last_state = HIGH;
 uint32_t btn_press_start = 0;
 bool btn_long_press_handled = false;
 
+// --- Background NVS Save (Deferred) ---
+bool save_cal_pending = false;
+unsigned long save_cal_timer = 0;
+
 void loop() {
     // Read IMU
     updateIMU();
@@ -82,12 +126,20 @@ void loop() {
     lvgl_port_lock(-1);
     updateUI(roll, pitch);
     
-    // Check for calibration trigger (IMU flat detection or button)
-    if (isCalibrating()) {
-        zeroIMU(); 
-    }
-    
     lvgl_port_unlock();
+    
+    // Check for calibration trigger (IMU flat detection or button)
+    // Perform NVS write OUTSIDE the LVGL lock to prevent blocking/WDT
+    if (consumeCalibrationTrigger()) {
+        Serial.println("Calibration Triggered! (RAM Update)");
+        // delay(100); // No longer needed for RAM update
+        zeroIMU(); 
+        yield(); 
+        
+        // Schedule NVS Save for later (when UI is idle/safe)
+        save_cal_pending = true;
+        save_cal_timer = millis();
+    }
     
     // Handle Web Server Clients
     handleWebServer();
@@ -143,6 +195,14 @@ void loop() {
     }
     
     btn_last_state = btn_state;
+    
+    // --- Background NVS Save (Deferred) ---
+    if (save_cal_pending && millis() - save_cal_timer > 3000) {
+        Serial.println("Saving Calibration to NVS (Safe Time)...");
+        saveIMUOffsets();
+        save_cal_pending = false;
+        // showToast("Settings Saved"); // Removed as requested
+    }
 
     delay(20); // 50Hz Update Rate (Faster for button response)
 }

@@ -71,12 +71,18 @@ void zeroIMU() {
     offsetRoll += currentRoll;
     offsetPitch += currentPitch;
     
-    // Save to NVS
-    prefs.putFloat("roll_off", offsetRoll);
-    prefs.putFloat("pitch_off", offsetPitch);
-    Serial.println("Offsets Saved to NVS");
+    // RAM ONLY: Do NOT save to NVS here. 
+    // Saving to NVS blocks interrupts and causes freezes if done in UI loop.
+    // We rely on auto-save or explicit save later.
+    Serial.println("Offsets Updated (RAM)");
     
     // Reset current to 0 immediately for visual feedback
     currentRoll = 0;
     currentPitch = 0;
+}
+
+void saveIMUOffsets() {
+    prefs.putFloat("roll_off", offsetRoll);
+    prefs.putFloat("pitch_off", offsetPitch);
+    Serial.println("Offsets Saved to NVS (Background)");
 }

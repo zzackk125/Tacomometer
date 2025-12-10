@@ -15,4 +15,5 @@ void initIMU();
 void updateIMU();
 float getRoll();
 float getPitch();
-void zeroIMU();
+void zeroIMU(); // Updates RAM offsets only
+void saveIMUOffsets(); // Explicitly save to NVS

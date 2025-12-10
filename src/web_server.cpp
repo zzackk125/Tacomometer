@@ -112,13 +112,37 @@ const char index_html[] PROGMEM = R"rawliteral(
   
   <div class="card">
     <button class="filled" onclick="doAction('calibrate')">Calibrate</button>
-    <button onclick="doAction('settings')">Settings</button>
+    <button onclick="openSettings()">Settings</button>
     <button class="danger" onclick="doAction('disconnect')">Disconnect</button>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:10; align-items:center; justify-content:center;">
+    <div class="card" style="background:var(--surface); min-width:300px;">
+      <h2 style="margin-top:0;">Settings</h2>
+      
+      <label>UI Rotation: <span id="rotVal">0</span>°</label>
+      <div style="display:flex; gap:10px; margin-bottom:15px;">
+        <button class="filled" onclick="updateRotation(0)">0°</button>
+        <button class="filled" onclick="updateRotation(90)">90°</button>
+        <button class="filled" onclick="updateRotation(180)">180°</button>
+        <button class="filled" onclick="updateRotation(270)">270°</button>
+      </div>
+      
+      <label>Critical Angle: <span id="critVal">50</span>°</label>
+      <input type="number" id="critInput" min="10" max="90" onchange="updateCritical(this.value)">
+      
+      <hr style="width:100%; border:0; border-top:1px solid #444; margin: 10px 0;">
+      
+      <button onclick="resetSettings()">Return to Default</button>
+      <button class="filled" onclick="closeSettings()">Close</button>
+    </div>
   </div>
 
   <div id="toast">Command Sent</div>
 
   <script>
+
     function doAction(action) {
       if (action === 'disconnect') {
           fetch('/disconnect', { method: 'POST' })
@@ -141,13 +165,66 @@ const char index_html[] PROGMEM = R"rawliteral(
       x.className = "show";
       setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
     }
+    
+    // Settings Logic
+    function openSettings() {
+        document.getElementById('settingsModal').style.display = 'flex';
+        fetch('/get_settings')
+            .then(r => r.json())
+            .then(data => {
+                // document.getElementById('rotSlider').value = data.rot; // Removed
+                document.getElementById('rotVal').innerText = data.rot;
+                document.getElementById('critInput').value = data.crit;
+                document.getElementById('critVal').innerText = data.crit;
+            });
+    }
+    
+    function closeSettings() {
+        document.getElementById('settingsModal').style.display = 'none';
+    }
+    
+    var rotTimeout;
+    var critTimeout;
+    var lastRotVal = -1;
+    
+    function updateRotation(val) {
+        document.getElementById('rotVal').innerText = val;
+        fetch('/set_rotation?val=' + val, {method: 'POST'});
+    }
+    
+    function updateCritical(val) {
+        document.getElementById('critVal').innerText = val;
+        clearTimeout(critTimeout);
+        critTimeout = setTimeout(function() {
+             fetch('/set_critical?val=' + val, {method: 'POST'});
+        }, 100);
+    }
+    
+    function resetSettings() {
+        if(confirm("Reset all settings?")) {
+            fetch('/reset_settings', {method: 'POST'})
+                .then(() => {
+                    // Update UI to defaults
+                    // document.getElementById('rotSlider').value = 0; // Removed
+                    document.getElementById('rotVal').innerText = 0;
+                    document.getElementById('critInput').value = 50;
+                    document.getElementById('critVal').innerText = 50;
+                    showToast("Settings Reset");
+                });
+        }
+    }
   </script>
 </body>
 </html>
 )rawliteral";
 
+// Use send_P for PROGMEM content to avoid RAM copy/issues
 void handleRoot() {
-    server.send(200, "text/html", index_html);
+    server.send_P(200, "text/html", index_html);
+}
+
+void handleNotFound() {
+    server.send(404, "text/plain", "Not Found");
 }
 
 void handleCalibrate() {
@@ -163,8 +240,42 @@ void handleCalibrate() {
 }
 
 void handleSettings() {
-    server.send(200, "text/plain", "Settings Placeholder");
+    server.send(200, "text/plain", "Use Web UI");
 }
+
+void handleGetSettings() {
+    String json = "{";
+    json += "\"rot\":" + String(getUIRotation()) + ",";
+    json += "\"crit\":" + String(getCriticalAngle());
+    json += "}";
+    server.send(200, "application/json", json);
+}
+
+void handleSetRotation() {
+    if (server.hasArg("val")) {
+        int val = server.arg("val").toInt();
+        setUIRotation(val);
+        server.send(200, "text/plain", "OK");
+    } else {
+        server.send(400, "text/plain", "Missing val");
+    }
+}
+
+void handleSetCritical() {
+    if (server.hasArg("val")) {
+        int val = server.arg("val").toInt();
+        setCriticalAngle(val);
+        server.send(200, "text/plain", "OK");
+    } else {
+        server.send(400, "text/plain", "Missing val");
+    }
+}
+
+void handleResetSettings() {
+    resetSettings();
+    server.send(200, "text/plain", "OK");
+}
+
 
 bool should_disconnect = false;
 
@@ -185,11 +296,19 @@ void startAPMode() {
     
     server.on("/", handleRoot);
     server.on("/calibrate", handleCalibrate);
-    server.on("/settings", handleSettings);
+    // server.on("/settings", handleSettings);
+    
+    server.on("/get_settings", handleGetSettings);
+    server.on("/set_rotation", HTTP_POST, handleSetRotation);
+    server.on("/set_critical", HTTP_POST, handleSetCritical);
+    server.on("/reset_settings", HTTP_POST, handleResetSettings);
+    
     server.on("/disconnect", HTTP_POST, [](){
         server.send(200, "text/plain", "Bye");
         should_disconnect = true; // Trigger disconnect in main loop
     });
+    
+    server.onNotFound(handleNotFound);
     
     server.begin();
     ap_mode_active = true;
