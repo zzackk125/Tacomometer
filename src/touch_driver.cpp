@@ -9,6 +9,11 @@
 #include "board_config.h"
 
 static void touch_read_cb(lv_indev_t * indev, lv_indev_data_t * data);
+static int touch_rotation = 0;
+
+void setTouchRotation(int degrees) {
+    touch_rotation = degrees;
+}
 
 void initTouch() {
     // Create Input Device
@@ -42,8 +47,13 @@ static void touch_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
         if (tp_x > LCD_H_RES) tp_x = LCD_H_RES;
         if (tp_y > LCD_V_RES) tp_y = LCD_V_RES;
 
-        data->point.x = tp_x;
-        data->point.y = tp_y;
+        if (touch_rotation == 180) {
+            data->point.x = LCD_H_RES - tp_x;
+            data->point.y = LCD_V_RES - tp_y;
+        } else {
+            data->point.x = tp_x;
+            data->point.y = tp_y;
+        }
         data->state = LV_INDEV_STATE_PRESSED;
     } else {
         data->state = LV_INDEV_STATE_RELEASED;

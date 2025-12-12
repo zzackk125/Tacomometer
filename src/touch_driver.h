@@ -12,3 +12,4 @@
 #include <lvgl.h>
 
 void initTouch();
+void setTouchRotation(int degrees);

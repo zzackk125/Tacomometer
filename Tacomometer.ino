@@ -114,6 +114,7 @@ bool btn_long_press_handled = false;
 
 // Double Tap State
 uint32_t last_btn_release = 0;
+uint32_t last_tap_time = 0; // Added for double click logic
 int btn_click_count = 0;
 
 // --- Background NVS Save (Deferred) ---
@@ -182,9 +183,26 @@ void loop() {
              // Single Click Action: Turn off AP Mode if active
              if (isAPMode()) {
                  stopAPMode();
-                 // showToast("WiFi Off"); // stopAPMode usually handles UI? Or needs toast?
-                 // Original code didn't toast on stop? 
-                 // Let's add feedback if useful, but keep it minimal as requested.
+             } else {
+                 // Check for Double Click
+                 if (millis() - last_tap_time < 400) {
+                     btn_click_count++;
+                 } else {
+                     btn_click_count = 1;
+                 }
+                 last_tap_time = millis();
+                 
+                 if (btn_click_count == 2) {
+                     // Double Click Detected -> Rotate
+                     lvgl_port_lock(-1);
+                     int current = getUIRotation();
+                     int next = (current == 0) ? 180 : 0;
+                     setUIRotation(next);
+                     showToast(next == 0 ? "Rotation: 0" : "Rotation: 180 (Inverted)");
+                     // Force update
+                     lvgl_port_unlock();
+                     btn_click_count = 0; // Reset
+                 }
              }
         }
     }

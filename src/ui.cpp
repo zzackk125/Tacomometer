@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include "imu_driver.h" // For calibration access if needed, or we pass callback
 #include <Preferences.h>
+#include "lvgl_port.h" // For hardware rotation
+#include "touch_driver.h" // For touch rotation
 
 LV_FONT_DECLARE(lv_font_montserrat_28);
 LV_FONT_DECLARE(lv_font_montserrat_48);
@@ -56,6 +58,7 @@ static float max_pitch_back = 0;
 static Preferences ui_prefs;
 
 // Settings
+static int ui_rotation = 0;
 static int critical_angle = 50;
 
 
@@ -202,15 +205,19 @@ void initUI() {
     // Load Max Values & Settings
     ui_prefs.begin("ui", false);
     max_roll_left = ui_prefs.getFloat("m_rl", 0);
-    max_roll_right = ui_prefs.getFloat("m_rr", 0);
     max_pitch_fwd = ui_prefs.getFloat("m_pf", 0);
     max_pitch_back = ui_prefs.getFloat("m_pb", 0);
 
-    // ui_rotation = 0; // Removed
+    // Load Rotation
+    ui_rotation = ui_prefs.getInt("rot", 0);
+    if (ui_rotation != 0 && ui_rotation != 180) ui_rotation = 0; // Only 0/180 supported by HW flip
+    
+    // Apply Hardware Rotation Immediately
+    setUIRotation(ui_rotation);
+
     critical_angle = ui_prefs.getInt("crit", 50);
 
     // Sanitize Loaded Values (Prevent crashes/glitches from bad NVS)
-    // if (ui_rotation < 0 || ui_rotation >= 360) ui_rotation = 0; // Removed
     if (critical_angle < 10 || critical_angle > 90) critical_angle = 50;
 
     // 1. Background Image
@@ -219,7 +226,7 @@ void initUI() {
     lv_obj_center(bg_img);
     lv_obj_add_flag(bg_img, LV_OBJ_FLAG_CLICKABLE); // Enable input for long press
     lv_obj_add_event_cb(bg_img, calibration_event_cb, LV_EVENT_ALL, NULL);
-    lv_image_set_rotation(bg_img, 0); // Fixed 0 degrees
+    lv_image_set_rotation(bg_img, 0); // Always 0 (HW handles rotation)
 
 
     // 2. Roll Truck (Top Center)
@@ -392,11 +399,9 @@ void updateUI(float roll, float pitch) {
     // BUT! Since we are removing software rotation, we should just feed RAW data and let hardware rotation handle it later.
     // However, for NOW, we need to output something that looks correct in the current hardware state (which is probably 0).
     // In "Default" (0) block earlier: effective_roll = pitch; effective_pitch = roll;
-    // Let's stick to the "Perfect" mapping (270 or 90 logic).
-    // Let's use 1:1 Mapping: Roll=Roll, Pitch=Pitch.
-    
-    float effective_roll = roll;
-    float effective_pitch = pitch;
+    // Swapped Mapping for Hardware Orientation (Sensor X=Pitch, Sensor Y=Roll)
+    float effective_roll = pitch;
+    float effective_pitch = roll;
 
     // --- Max Angle Tracking ---
     if (!is_calibrating) {
@@ -726,6 +731,21 @@ bool consumeCalibrationTrigger() {
 }
 
 // --- Settings Implementation ---
+
+void setUIRotation(int degrees) {
+    if (degrees != 0 && degrees != 180) return; // Only support 0 and 180 for now
+    
+    ui_rotation = degrees;
+    ui_prefs.putInt("rot", ui_rotation);
+    
+    // Apply to Hardware
+    lvgl_port_set_rotation(ui_rotation);
+    setTouchRotation(ui_rotation);
+}
+
+int getUIRotation() {
+    return ui_rotation;
+}
 
 void setCriticalAngle(int degrees) {
     critical_angle = degrees;

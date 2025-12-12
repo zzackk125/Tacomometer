@@ -18,6 +18,8 @@ void hideToast();
 void triggerCalibrationUI();
 
 // Settings API
+void setUIRotation(int degrees);
+int getUIRotation();
 void setCriticalAngle(int degrees);
 int getCriticalAngle();
 void resetSettings();
