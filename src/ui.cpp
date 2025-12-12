@@ -59,7 +59,23 @@ static Preferences ui_prefs;
 
 // Settings
 static int ui_rotation = 0;
-static int critical_angle = 50;
+// Split Critical Angles
+static int critical_roll = 50;
+static int critical_pitch = 50;
+// Color Theme
+static int ui_color_idx = 0;
+
+// Color Palette (Orange, Blue, Green, Red, Purple, Yellow)
+static lv_color_t theme_colors[] = {
+    lv_color_hex(0xFF6D00),
+    lv_color_hex(0x2196F3),
+    lv_color_hex(0x4CAF50),
+    lv_color_hex(0xF44336),
+    lv_color_hex(0x9C27B0),
+    lv_color_hex(0xFFEB3B)
+};
+
+void applyUIColor(int idx); // Forward decl
 
 
 
@@ -68,8 +84,7 @@ static bool is_calibrating = false;
 static bool calibration_trigger_active = false; // New flag for one-shot trigger
 static uint32_t calibration_start_time = 0;
 
-// Toast Object
-static lv_obj_t * toast_obj = NULL;
+
 
 // Auto-Save State
 static uint32_t last_save_time = 0;
@@ -80,9 +95,13 @@ static bool dirty = false;
 // static bool dirty = false; // Redefinition removed
 
 // Toast Timer
-static uint32_t toast_show_time = 0;
 
-void showToast(const char* text) {
+
+static lv_obj_t * toast_obj = NULL;
+static uint32_t toast_show_time = 0;
+static uint32_t toast_duration = 2000;
+
+void showToast(const char* text, uint32_t duration_ms) {
     if (toast_obj == NULL) {
         toast_obj = lv_label_create(lv_layer_top());
         lv_obj_set_style_bg_color(toast_obj, lv_color_hex(0x222222), 0);
@@ -104,7 +123,9 @@ void showToast(const char* text) {
     lv_label_set_text(toast_obj, text);
     lv_obj_clear_flag(toast_obj, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(toast_obj);
+    lv_obj_move_foreground(toast_obj);
     toast_show_time = lv_tick_get(); 
+    toast_duration = duration_ms; 
     // Reset Timer (We'll use last_save_time or similar? No, need dedicated static)
     // Actually we can add a timer callback or just check in updateUI.
     // Let's add a global timestamp.
@@ -211,14 +232,27 @@ void initUI() {
     // Load Rotation
     ui_rotation = ui_prefs.getInt("rot", 0);
     if (ui_rotation % 90 != 0) ui_rotation = 0; // Sanitize
+
+    // Load Critical Angles
+    critical_roll = ui_prefs.getInt("crit_r", 50);
+    critical_pitch = ui_prefs.getInt("crit_p", 50);
+    
+    // Load Color
+    ui_color_idx = ui_prefs.getInt("color", 0);
+
+    // Sanitize Loaded Values
+    if (critical_roll < 10 || critical_roll > 90) critical_roll = 50;
+    if (critical_pitch < 10 || critical_pitch > 90) critical_pitch = 50;
+    if (ui_color_idx < 0 || ui_color_idx > 5) ui_color_idx = 0; // Default Orange
     
     // Apply Hardware Rotation Immediately
     setUIRotation(ui_rotation);
 
-    critical_angle = ui_prefs.getInt("crit", 50);
+    // Apply Color MOVED to end of function to avoid NULL pointer crash
 
-    // Sanitize Loaded Values (Prevent crashes/glitches from bad NVS)
-    if (critical_angle < 10 || critical_angle > 90) critical_angle = 50;
+
+    // Legacy critical_angle loading removed.
+
 
     // 1. Background Image
     bg_img = lv_image_create(scr);
@@ -376,6 +410,9 @@ void initUI() {
     
     // Hide initially
     lv_obj_add_flag(lbl_critical_dynamic, LV_OBJ_FLAG_HIDDEN);
+    
+    // 8. Apply Color Theme (Safe now that objects exist)
+    applyUIColor(ui_color_idx);
 }
 
 // Removed extra brace 
@@ -557,7 +594,10 @@ void updateUI(float roll, float pitch) {
     if (abs(effective_roll) > max_angle) max_angle = abs(effective_roll);
     if (abs(effective_pitch) > max_angle) max_angle = abs(effective_pitch);
 
-    if (max_angle > (float)critical_angle && !is_calibrating) {
+    // Check vs Split Limits
+    bool is_crit = (abs(effective_roll) > (float)critical_roll) || (abs(effective_pitch) > (float)critical_pitch);
+
+    if (is_crit && !is_calibrating) {
         // Ensure Warning Overlay is hidden
         if (was_warning) {
             lv_obj_set_style_border_opa(overlay_alert, 0, 0);
@@ -610,14 +650,14 @@ void updateUI(float roll, float pitch) {
         // If Pitch is critical, it enters `else if (abs(pitch) > 50)`.
         
         // Logic Bug Fix: Explicitly check all cases
-        int type_idx = 0;
-        if (abs(effective_roll) > (float)critical_angle && abs(effective_pitch) > (float)critical_angle) type_idx = 2; // Both
-        else if (abs(effective_pitch) > (float)critical_angle) type_idx = 0; // Pitch
-        else type_idx = 1; // Roll (Default/Fallback)
+        // Explicit Logic for Split Limits
+        bool roll_crit = abs(effective_roll) > (float)critical_roll;
+        bool pitch_crit = abs(effective_pitch) > (float)critical_pitch;
         
-        if (abs(effective_roll) > (float)critical_angle && abs(effective_pitch) > (float)critical_angle) type_idx = 2; // Both
-        else if (abs(effective_pitch) > (float)critical_angle) type_idx = 0; // Pitch
-        else type_idx = 1; // Roll (Default/Fallback)
+        int type_idx = 0;
+        if (roll_crit && pitch_crit) type_idx = 2; // Both
+        else if (pitch_crit) type_idx = 0; // Pitch
+        else type_idx = 1; // Roll
         
         // Only update visibility if changed
         if (type_idx != last_critical_type) { 
@@ -705,7 +745,8 @@ void updateUI(float roll, float pitch) {
     }
 
     // Handle Toast Timeout
-    if (toast_show_time > 0 && lv_tick_elaps(toast_show_time) > 2000) {
+    // Handle Toast Timeout
+    if (toast_duration > 0 && toast_show_time > 0 && lv_tick_elaps(toast_show_time) > toast_duration) {
         hideToast();
     }
 }
@@ -743,38 +784,83 @@ int getUIRotation() {
     return ui_rotation;
 }
 
-void setCriticalAngle(int degrees) {
-    critical_angle = degrees;
-    if (critical_angle < 10) critical_angle = 10;
-    if (critical_angle > 90) critical_angle = 90;
-    ui_prefs.putInt("crit", critical_angle);
+void setCriticalValues(int roll, int pitch) {
+    critical_roll = roll;
+    critical_pitch = pitch;
+    
+    if (critical_roll < 10) critical_roll = 10;
+    if (critical_roll > 90) critical_roll = 90;
+    
+    if (critical_pitch < 10) critical_pitch = 10;
+    if (critical_pitch > 90) critical_pitch = 90;
+
+    ui_prefs.putInt("crit_r", critical_roll);
+    ui_prefs.putInt("crit_p", critical_pitch);
 }
 
-int getCriticalAngle() {
-    return critical_angle;
+int getCriticalRoll() { return critical_roll; }
+int getCriticalPitch() { return critical_pitch; }
+
+void setUIColor(int color_idx) {
+    if (color_idx < 0 || color_idx > 5) return;
+    ui_color_idx = color_idx;
+    ui_prefs.putInt("color", ui_color_idx);
+    applyUIColor(ui_color_idx);
+}
+
+int getUIColor() { return ui_color_idx; }
+
+void applyUIColor(int idx) {
+    if (idx < 0 || idx > 5) idx = 0;
+    lv_color_t color = theme_colors[idx];
+    
+    // Apply tint to assets
+    // If idx 0 (Orange), we assume assets are native Orange?
+    // Actually if we recolor with Orange, it might double saturation.
+    // Let's rely on standard Recolor OPA.
+    
+    lv_opa_t opa = LV_OPA_COVER; // Full tint
+    if (idx == 0) opa = LV_OPA_TRANSP; // Default: No tint? Or still tint to ensure uniformity? 
+    // If default assets ARE Orange, then no tint needed.
+    // Assuming default is NATIVE.
+    
+    if (idx == 0) {
+        // Clear Recolor
+        lv_obj_set_style_image_recolor_opa(truck_roll_img, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_image_recolor_opa(truck_pitch_img, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_image_recolor_opa(pointer_roll, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_image_recolor_opa(pointer_pitch, LV_OPA_TRANSP, 0);
+    } else {
+        // Apply Recolor
+        lv_obj_set_style_image_recolor(truck_roll_img, color, 0);
+        lv_obj_set_style_image_recolor_opa(truck_roll_img, LV_OPA_COVER, 0); // Warning: Might lose details? Use MIX/COVER properly?
+        // PNG transparency is preserved. But full solid color might be flat.
+        // Let's try it.
+        
+        lv_obj_set_style_image_recolor(truck_pitch_img, color, 0);
+        lv_obj_set_style_image_recolor_opa(truck_pitch_img, LV_OPA_COVER, 0);
+        
+        lv_obj_set_style_image_recolor(pointer_roll, color, 0);
+        lv_obj_set_style_image_recolor_opa(pointer_roll, LV_OPA_COVER, 0);
+        
+        lv_obj_set_style_image_recolor(pointer_pitch, color, 0);
+        lv_obj_set_style_image_recolor_opa(pointer_pitch, LV_OPA_COVER, 0);
+    }
 }
 
 void resetSettings() {
     // Reset NVS to defaults
-    ui_prefs.putInt("crit", 50);
+    ui_prefs.putInt("crit_r", 50);
+    ui_prefs.putInt("crit_p", 50);
+    ui_prefs.putInt("color", 0); // Orange
     
-    // Also clear max values?
+    // Reset Max
     ui_prefs.putFloat("m_rl", 0);
     ui_prefs.putFloat("m_rr", 0);
     ui_prefs.putFloat("m_pf", 0);
     ui_prefs.putFloat("m_pb", 0);
     
-    // We should also clear IMU offsets?
-    // That requires accessing 'imu' namespace.
-    // Let's assume user wants full factory reset.
-    // For now, let's just do UI as requested + restart.
-    
-    // Let's assume user wants full factory reset.
-    // For now, let's just do UI as requested + restart.
-    
-    Serial.println("Settings Reset. Updating UI..."); // No Restart
-    // delay(100);
-    // ESP.restart(); // Removed for seamless reset
-    
-    // Force immediate refresh
+    Serial.println("Settings Reset. Rebooting..."); 
+    delay(100);
+    ESP.restart(); 
 }

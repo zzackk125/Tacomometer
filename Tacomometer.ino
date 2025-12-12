@@ -166,7 +166,7 @@ void loop() {
                 // Long Press Detected -> Turn ON AP
                 btn_long_press_handled = true;
                 lvgl_port_lock(-1);
-                showToast("Ready to Pair\nWiFi: Tacomometer\nIP: 192.168.4.1");
+                showToast("Ready to Pair\nWiFi: Tacomometer\nIP: 192.168.4.1", 0);
                 lvgl_port_unlock();
                 startAPMode();
              }
