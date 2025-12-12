@@ -89,15 +89,19 @@ const char index_html[] PROGMEM = R"rawliteral(
     #toast {
       visibility: hidden;
       min-width: 250px;
-      background-color: #333;
-      color: #fff;
+      /* background-color: #333; */
+      background-color: var(--surface);
+      color: var(--on-surface);
+      border: 1px solid var(--primary);
       text-align: center;
       border-radius: 4px;
       padding: 16px;
       position: fixed;
-      z-index: 1;
+      z-index: 100;
       bottom: 30px;
       font-size: 14px;
+      left: 50%;
+      transform: translateX(-50%);
     }
     #toast.show {
       visibility: visible;
@@ -245,7 +249,7 @@ void handleSettings() {
 
 void handleGetSettings() {
     String json = "{";
-    json += "\"rot\":" + String(getUIRotation()) + ",";
+    json += "\"rot\":0,"; // Rotation hardcoded 0
     json += "\"crit\":" + String(getCriticalAngle());
     json += "}";
     server.send(200, "application/json", json);
@@ -254,7 +258,8 @@ void handleGetSettings() {
 void handleSetRotation() {
     if (server.hasArg("val")) {
         int val = server.arg("val").toInt();
-        setUIRotation(val);
+        // setUIRotation(val); // Removed
+        (void)val; // Avoid unused warning
         server.send(200, "text/plain", "OK");
     } else {
         server.send(400, "text/plain", "Missing val");

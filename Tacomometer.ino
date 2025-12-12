@@ -112,6 +112,10 @@ bool btn_last_state = HIGH;
 uint32_t btn_press_start = 0;
 bool btn_long_press_handled = false;
 
+// Double Tap State
+uint32_t last_btn_release = 0;
+int btn_click_count = 0;
+
 // --- Background NVS Save (Deferred) ---
 bool save_cal_pending = false;
 unsigned long save_cal_timer = 0;
@@ -170,27 +174,18 @@ void loop() {
     
     // Release Detected
     if (btn_state == HIGH && btn_last_state == LOW) {
-        // Logic for SHORT press?
-        // Requirement: "If wifi is enabled and the boot button is pressed [implied short], turn off wifi"
-        // Also: "When button pressed and held... do same as 5 tap [Enable]"
+        uint32_t release_time = millis();
+        uint32_t press_duration = release_time - btn_press_start;
         
-        if (isAPMode()) {
-            // If we are already in AP mode, ANY press turns it off? 
-            // "If wifi is enabled and the boot button is pressed, turn off wifi"
-            // Let's treat a short click as the OFF trigger.
-            // Or even a long press? "remove the 5 tap trigger".
-            // Let's say < 1000ms is a click.
-            // Actually, safest is: If AP is ON, and we release button, turn it OFF if it wasn't a long press?
-            // User: "If wifi is enabled and the boot button is pressed, turn off wifi mode and clear the toast message."
-            // This implies a simple interaction. I will use Release event.
-            // If AP ON -> Turn OFF.
-            
-            // To prevent accidental turn off immediately after turn on (if user holds too long?), 
-            // we should ensure it's a distinct event. 
-            // If btn_long_press_handled is true, we just turned it ON, so don't turn it OFF immediately.
-            if (!btn_long_press_handled) {
+        // Short Press Logic (< 1000ms)
+        if (press_duration < 1000 && !btn_long_press_handled) {
+             // Single Click Action: Turn off AP Mode if active
+             if (isAPMode()) {
                  stopAPMode();
-            }
+                 // showToast("WiFi Off"); // stopAPMode usually handles UI? Or needs toast?
+                 // Original code didn't toast on stop? 
+                 // Let's add feedback if useful, but keep it minimal as requested.
+             }
         }
     }
     

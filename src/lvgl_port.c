@@ -25,6 +25,7 @@ static const char *TAG = "lvgl_port";
 static SemaphoreHandle_t lvgl_mux = NULL;
 static esp_lcd_panel_io_handle_t amoled_panel_io_handle = NULL;
 static lv_display_t * disp_handle = NULL;
+static int current_rotation = 0; // 0, 90, 180, 270
 
 // Forward Declarations
 static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx);
@@ -208,4 +209,30 @@ void lvgl_port_lock(int timeout_ms) {
 
 void lvgl_port_unlock(void) {
     xSemaphoreGive(lvgl_mux);
+}
+
+void lvgl_port_set_rotation(int degrees) {
+    if (!disp_handle) return;
+    esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t) lv_display_get_user_data(disp_handle);
+    
+    current_rotation = degrees;
+    
+    // For this specific display and setup:
+    // 0 = Normal
+    // 180 = Mirror X + Mirror Y (Flip)
+    // 90/270 = Not handled by HW here (handled by generic rotation if needed, but we focus on 180 fix)
+    
+    // NOTE: Depending on panel driver, Mirror X/Y might behave differently.
+    // SH8601 typically supports mirror.
+    
+    if (degrees == 180) {
+        esp_lcd_panel_mirror(panel_handle, true, true);
+    } else {
+        // Default 0
+        esp_lcd_panel_mirror(panel_handle, false, false);
+    }
+}
+
+int lvgl_port_get_rotation(void) {
+    return current_rotation;
 }
