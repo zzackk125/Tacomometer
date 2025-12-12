@@ -183,27 +183,8 @@ void loop() {
              // Single Click Action: Turn off AP Mode if active
              if (isAPMode()) {
                  stopAPMode();
-             } else {
-                 // Check for Double Click
-                 if (millis() - last_tap_time < 400) {
-                     btn_click_count++;
-                 } else {
-                     btn_click_count = 1;
-                 }
-                 last_tap_time = millis();
-                 
-                 if (btn_click_count == 2) {
-                     // Double Click Detected -> Rotate
-                     lvgl_port_lock(-1);
-                     int current = getUIRotation();
-                     int next = (current == 0) ? 180 : 0;
-                     setUIRotation(next);
-                     showToast(next == 0 ? "Rotation: 0" : "Rotation: 180 (Inverted)");
-                     // Force update
-                     lvgl_port_unlock();
-                     btn_click_count = 0; // Reset
-                 }
              }
+             // Rotation logic removed as per request (Moved to Web UI)
         }
     }
     

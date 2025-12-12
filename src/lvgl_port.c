@@ -147,8 +147,11 @@ static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, 
 static void example_lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
   esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t) lv_display_get_user_data(disp);
-  const int offsetx1 = area->x1 + 0x06; // Offset from demo
-  const int offsetx2 = area->x2 + 0x06;
+  
+  // Standard logic: No manual offsets here.
+  // Gaps handled by esp_lcd_panel_set_gap.
+  const int offsetx1 = area->x1;
+  const int offsetx2 = area->x2;
   const int offsety1 = area->y1;
   const int offsety2 = area->y2;
   
@@ -217,19 +220,40 @@ void lvgl_port_set_rotation(int degrees) {
     
     current_rotation = degrees;
     
-    // For this specific display and setup:
-    // 0 = Normal
-    // 180 = Mirror X + Mirror Y (Flip)
-    // 90/270 = Not handled by HW here (handled by generic rotation if needed, but we focus on 180 fix)
+    // Standard MADCTL Mappings for Rotation
+    // 0:   Default
+    // 90:  MV + MX
+    // 180: MX + MY
+    // 270: MV + MY
     
-    // NOTE: Depending on panel driver, Mirror X/Y might behave differently.
-    // SH8601 typically supports mirror.
-    
-    if (degrees == 180) {
-        esp_lcd_panel_mirror(panel_handle, true, true);
-    } else {
-        // Default 0
-        esp_lcd_panel_mirror(panel_handle, false, false);
+    switch (degrees) {
+        case 90:
+            esp_lcd_panel_swap_xy(panel_handle, true);
+            esp_lcd_panel_mirror(panel_handle, true, false);
+            // Gap Tuning: 7 Verified Best for 466px on 480px RAM.
+            // Mathematical center ((480-466)/2 = 7).
+            esp_lcd_panel_set_gap(panel_handle, 0, 7); 
+            break;
+        case 180:
+            esp_lcd_panel_swap_xy(panel_handle, false);
+            esp_lcd_panel_mirror(panel_handle, true, true);
+            // Gap Tuning for 466px on 480px RAM
+            // 0/180 Normal Mode: Gap X=6, Y=0 (Original working state).
+            esp_lcd_panel_set_gap(panel_handle, 6, 0);
+            break;
+        case 270:
+            esp_lcd_panel_swap_xy(panel_handle, true);
+            esp_lcd_panel_mirror(panel_handle, false, true);
+            // Gap Tuning: 7 Verified Best.
+            esp_lcd_panel_set_gap(panel_handle, 0, 7);
+            break;
+        case 0:
+        default:
+            esp_lcd_panel_swap_xy(panel_handle, false);
+            esp_lcd_panel_mirror(panel_handle, false, false);
+            // 0/180 Normal Mode: Gap X=6, Y=0 (Original working state).
+            esp_lcd_panel_set_gap(panel_handle, 6, 0);
+            break;
     }
 }
 

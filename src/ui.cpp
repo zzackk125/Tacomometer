@@ -210,7 +210,7 @@ void initUI() {
 
     // Load Rotation
     ui_rotation = ui_prefs.getInt("rot", 0);
-    if (ui_rotation != 0 && ui_rotation != 180) ui_rotation = 0; // Only 0/180 supported by HW flip
+    if (ui_rotation % 90 != 0) ui_rotation = 0; // Sanitize
     
     // Apply Hardware Rotation Immediately
     setUIRotation(ui_rotation);
@@ -399,9 +399,22 @@ void updateUI(float roll, float pitch) {
     // BUT! Since we are removing software rotation, we should just feed RAW data and let hardware rotation handle it later.
     // However, for NOW, we need to output something that looks correct in the current hardware state (which is probably 0).
     // In "Default" (0) block earlier: effective_roll = pitch; effective_pitch = roll;
-    // Swapped Mapping for Hardware Orientation (Sensor X=Pitch, Sensor Y=Roll)
-    float effective_roll = pitch;
-    float effective_pitch = roll;
+    // Conditional Mapping based on Rotation
+    float effective_roll, effective_pitch;
+    
+    if (ui_rotation == 90 || ui_rotation == 270) {
+        // 90/270: Standard Mapping (Sensor X=Roll, Sensor Y=Pitch relative to screen)
+        effective_roll = roll;
+        // Pitch Flip Logic
+        if (ui_rotation == 90) effective_pitch = -pitch; // Fix Inversion for 90
+        else effective_pitch = pitch;
+    } else {
+        // 0/180: Swapped Mapping (Sensor X=Pitch, Sensor Y=Roll relative to screen)
+        effective_roll = pitch;
+        // Pitch Flip Logic
+        if (ui_rotation == 180) effective_pitch = -roll; // Fix Inversion for 180
+        else effective_pitch = roll;
+    }
 
     // --- Max Angle Tracking ---
     if (!is_calibrating) {
@@ -436,47 +449,26 @@ void updateUI(float roll, float pitch) {
     }
 
     // --- Update Graphics ---
-    // Background Rotation FIXED to 0 (Aligns with Truck positions)
-    lv_image_set_rotation(bg_img, 0); // 0 degrees static
+    // --- Update Graphics ---
+    // Background Rotation FIXED to 0
+    lv_image_set_rotation(bg_img, 0);
 
-    // Helper Vars
-    // Fixed Positions (Logic from 270 degree rotation)
-    // Truck Images (Target 270 Positions: Left and Right?)
-    // Let's look at initUI for default positions.
-    // Actually, updateUI was recalculating position every frame based on rotation.
-    // We need to set them ONCE if they are static.
-    // BUT updateUI is called in loop.
-    // Let's just set them to fixed coordinates here.
+    // Dynamic Center Calculation
+    lv_obj_t * scr = lv_scr_act();
+    int32_t cx = lv_obj_get_width(scr) / 2;
+    int32_t cy = lv_obj_get_height(scr) / 2;
     
-    // Truck Roll: (233, 153) rotated 270 -> x', y'
-    // Truck Pitch: (233, 333) rotated 270
-    // Wait, the "cx, cy" was 233, 233.
-    // Let's trust the visual memory: 
-    // Roll Gauge is Left? Pitch Gauge is Right?
-    // Let's assume standard layout.
+    // Truck Offsets derived from original hardcoded values (233, 233)
+    // Roll Truck (201, 121) -> 201 = 233-32, 121 = 233-112
+    // Pitch Truck (201, 301) -> 201 = 233-32, 301 = 233+68
     
-    // Truck Pitch (Top/Right?):
-    // Truck Roll (Bottom/Left?):
+    // Roll Truck
+    lv_obj_set_pos(truck_roll_img, cx - 32, cy - 112);
     
-    // Using previous 270 logic:
-    // x_off = -150; y_off = 0;
-    // Status label at (-150, 0) relative to center. That is LEFT.
+    // Pitch Truck
+    lv_obj_set_pos(truck_pitch_img, cx - 32, cy + 68);
     
-    // Let's just set generic fixed positions for now.
-    // Since we are removing rotation, we assume the user will rotate the SCREEN.
-    // So we should render relative to "Up".
-    // Let's stick to the "0" Rotation logic from before, but 1:1 mapping.
-    // 0 Rotation:
-    // Roll Truck: (233, 153) -> Top Gauge? 
-    // Pitch Truck: (233, 333) -> Bottom Gauge?
-    // Roll Label: (-75, -25) offset -> Left
-    
-    // Correct Fixed Layout (0 Degrees):
-    // Roll Truck: (233, 153) - 32
-    lv_obj_set_pos(truck_roll_img, 201, 121);
-    
-    // Pitch Truck: (233, 333) - 32
-    lv_obj_set_pos(truck_pitch_img, 201, 301);
+    // Labels are aligned with LV_ALIGN_CENTER, so they handle themselves automatically.
     
     // Label Roll Val: (-75, -25) relative to (233, 233) -> (158, 208)
     lv_obj_align(label_roll_val, LV_ALIGN_CENTER, -75, -25);
@@ -503,16 +495,17 @@ void updateUI(float roll, float pitch) {
     float radius = 195.0;
     
     // Roll Pointer (Base 0 Rotation)
+    // Roll Pointer (Base 0 Rotation)
     float rad_roll = (180.0 - effective_roll) * 3.14159 / 180.0;
-    int px_roll = 233 + (int)(radius * cos(rad_roll));
-    int py_roll = 233 + (int)(radius * sin(rad_roll));
+    int px_roll = cx + (int)(radius * cos(rad_roll));
+    int py_roll = cy + (int)(radius * sin(rad_roll));
     lv_obj_set_pos(pointer_roll, px_roll - 10, py_roll - 15); 
     lv_image_set_rotation(pointer_roll, (int32_t)((270 - effective_roll) * 10));
 
     // Pitch Pointer (Base 0 Rotation)
     float rad_pitch = (0.0 - effective_pitch) * 3.14159 / 180.0;
-    int px_pitch = 233 + (int)(radius * cos(rad_pitch));
-    int py_pitch = 233 + (int)(radius * sin(rad_pitch));
+    int px_pitch = cx + (int)(radius * cos(rad_pitch));
+    int py_pitch = cy + (int)(radius * sin(rad_pitch));
     lv_obj_set_pos(pointer_pitch, px_pitch - 10, py_pitch - 15); 
     lv_image_set_rotation(pointer_pitch, (int32_t)((90 - effective_pitch) * 10));
 
@@ -524,26 +517,26 @@ void updateUI(float roll, float pitch) {
     
     // 1. Roll Left
     float rad_rl = (180.0 - disp_rl) * 3.14159 / 180.0;
-    int px_rl = 233 + (int)(radius * cos(rad_rl));
-    int py_rl = 233 + (int)(radius * sin(rad_rl));
+    int px_rl = cx + (int)(radius * cos(rad_rl));
+    int py_rl = cy + (int)(radius * sin(rad_rl));
     lv_obj_set_pos(dot_roll_left, px_rl - 5, py_rl - 5); 
     
     // 2. Roll Right
     float rad_rr = (180.0 - disp_rr) * 3.14159 / 180.0;
-    int px_rr = 233 + (int)(radius * cos(rad_rr));
-    int py_rr = 233 + (int)(radius * sin(rad_rr));
+    int px_rr = cx + (int)(radius * cos(rad_rr));
+    int py_rr = cy + (int)(radius * sin(rad_rr));
     lv_obj_set_pos(dot_roll_right, px_rr - 5, py_rr - 5);
 
     // 3. Pitch Fwd (Left side of Pitch gauge?)
     float rad_pf = (0.0 - disp_pf) * 3.14159 / 180.0;
-    int px_pf = 233 + (int)(radius * cos(rad_pf));
-    int py_pf = 233 + (int)(radius * sin(rad_pf));
+    int px_pf = cx + (int)(radius * cos(rad_pf));
+    int py_pf = cy + (int)(radius * sin(rad_pf));
     lv_obj_set_pos(dot_pitch_fwd, px_pf - 5, py_pf - 5);
 
     // 4. Pitch Back
     float rad_pb = (0.0 - disp_pb) * 3.14159 / 180.0;
-    int px_pb = 233 + (int)(radius * cos(rad_pb));
-    int py_pb = 233 + (int)(radius * sin(rad_pb));
+    int px_pb = cx + (int)(radius * cos(rad_pb));
+    int py_pb = cy + (int)(radius * sin(rad_pb));
     lv_obj_set_pos(dot_pitch_back, px_pb - 5, py_pb - 5);
 
     
@@ -733,7 +726,7 @@ bool consumeCalibrationTrigger() {
 // --- Settings Implementation ---
 
 void setUIRotation(int degrees) {
-    if (degrees != 0 && degrees != 180) return; // Only support 0 and 180 for now
+    if (degrees % 90 != 0) return; // Only 0, 90, 180, 270
     
     ui_rotation = degrees;
     ui_prefs.putInt("rot", ui_rotation);
@@ -741,6 +734,9 @@ void setUIRotation(int degrees) {
     // Apply to Hardware
     lvgl_port_set_rotation(ui_rotation);
     setTouchRotation(ui_rotation);
+    
+    // Force Full Refresh to clear artifacts
+    lv_obj_invalidate(lv_scr_act());
 }
 
 int getUIRotation() {

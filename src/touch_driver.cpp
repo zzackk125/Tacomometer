@@ -50,6 +50,12 @@ static void touch_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
         if (touch_rotation == 180) {
             data->point.x = LCD_H_RES - tp_x;
             data->point.y = LCD_V_RES - tp_y;
+        } else if (touch_rotation == 90) {
+            data->point.x = tp_y;
+            data->point.y = LCD_H_RES - tp_x;
+        } else if (touch_rotation == 270) {
+            data->point.x = LCD_V_RES - tp_y;
+            data->point.y = tp_x;
         } else {
             data->point.x = tp_x;
             data->point.y = tp_y;
