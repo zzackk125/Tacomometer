@@ -669,8 +669,6 @@ void updateUI(float roll, float pitch) {
              
              // Use Static Text (Safety)
              if (lbl_critical_dynamic) {
-                 Serial.printf("Showing Crit: Type=%d Rot=FIXED Ptr=%p\n", type_idx, lbl_critical_dynamic);
-                 
                  // Use safe copy instead of static
                  lv_label_set_text(lbl_critical_dynamic, msg);
 
