@@ -8,12 +8,12 @@
 #include "web_server.h"
 #include <WiFi.h>
 #include <WebServer.h>
-#include <DNSServer.h>
+#include <Update.h>
 #include "imu_driver.h" // For zeroIMU
 #include "ui.h" // For hideToast, triggerCalibrationUI
 
 WebServer server(80);
-DNSServer dnsServer;
+// DNSServer dnsServer; Removed
 bool ap_mode_active = false;
 uint32_t ap_start_time = 0;
 bool toast_visible = false;
@@ -144,7 +144,10 @@ const char index_html[] PROGMEM = R"rawliteral(
   <!-- Settings Page (Hidden by default, same container style) -->
   <div id="settingsPage" class="container" style="display:none;">
     <div class="card">
-      <h2 style="margin-top:0; border-bottom: 1px solid #333; padding-bottom: 10px;">Settings</h2>
+      <h2 style="margin-top:0; border-bottom: 1px solid #333; padding-bottom: 10px; display:flex; justify-content:space-between; align-items:center;">
+          Settings
+          <span id="fw_ver" style="font-size:10px; color:#555; font-weight:normal;">v1.0.0</span>
+      </h2>
       
       <span class="card-title">Screen Rotation</span>
       <div class="grid-4">
@@ -180,6 +183,16 @@ const char index_html[] PROGMEM = R"rawliteral(
       
       <div style="margin-top: 24px; display:flex; gap:10px;">
         <button class="filled" style="flex:1;" onclick="showMain()">Main Menu</button>
+      </div>
+
+      <span class="card-title" style="margin-top: 24px;">Firmware Update</span>
+      <div style="background:#2C2C2C; padding:10px; border-radius:6px; display:flex; flex-direction:column; gap:10px;">
+          <input type="file" id="fw_file" accept=".bin" style="display:none;" onchange="fileSelected()">
+          <div style="display:flex; gap:10px;">
+             <button style="flex:1; padding:10px; font-size:12px;" onclick="document.getElementById('fw_file').click()">Select .bin</button>
+             <button id="flash_btn" class="filled" style="flex:1; padding:10px; font-size:12px; display:none;" onclick="startFlash()">Flash</button>
+          </div>
+          <span id="file_name" style="font-size:12px; color:#aaa; text-align:center;">No file selected</span>
       </div>
     </div>
   </div>
@@ -240,6 +253,9 @@ const char index_html[] PROGMEM = R"rawliteral(
                  document.getElementById('c'+c).classList.remove('selected');
                  if(data.color == c) document.getElementById('c'+c).classList.add('selected');
             });
+            
+            // Update Version
+            if(data.ver) document.getElementById('fw_ver').innerText = "v" + data.ver;
         });
     }
     
@@ -261,6 +277,55 @@ const char index_html[] PROGMEM = R"rawliteral(
     
     function setColor(idx) {
         fetch('/set_color?val=' + idx, {method:'POST'}).then(refreshSettings);
+    }
+    
+    function fileSelected() {
+        var input = document.getElementById('fw_file');
+        var nameLbl = document.getElementById('file_name');
+        var btn = document.getElementById('flash_btn');
+        
+        if (input.files && input.files[0]) {
+            nameLbl.innerText = input.files[0].name;
+            btn.style.display = 'block';
+        } else {
+            nameLbl.innerText = "No file selected";
+            btn.style.display = 'none';
+        }
+    }
+    
+    function startFlash() {
+        var input = document.getElementById('fw_file');
+        if (!input.files || !input.files[0]) return;
+        
+        if(!confirm("Flash " + input.files[0].name + "? Device will reboot.")) return;
+        
+        var data = new FormData();
+        data.append("update", input.files[0]);
+        
+        showToast("Uploading... Please Wait...");
+        
+        var xhr = new XMLHttpRequest();
+        xhr.upload.addEventListener("progress", function(e) {
+            if (e.lengthComputable) {
+                var percent = Math.round((e.loaded / e.total) * 100);
+                document.getElementById('file_name').innerText = "Uploading: " + percent + "%";
+            }
+        });
+        
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4) {
+                if(xhr.status == 200) {
+                     showToast("Update Success! Rebooting...");
+                     setTimeout(() => location.reload(), 4000);
+                } else {
+                     showToast("Update Failed");
+                     document.getElementById('file_name').innerText = "Failed";
+                }
+            }
+        };
+        
+        xhr.open("POST", "/update");
+        xhr.send(data);
     }
   </script>
 </body>
@@ -297,7 +362,8 @@ void handleGetSettings() {
     json += "\"rot\":" + String(getUIRotation()) + ",";
     json += "\"crit_r\":" + String(getCriticalRoll()) + ",";
     json += "\"crit_p\":" + String(getCriticalPitch()) + ",";
-    json += "\"color\":" + String(getUIColor());
+    json += "\"color\":" + String(getUIColor()) + ",";
+    json += "\"ver\":\"" + String(FIRMWARE_VERSION) + "\"";
     json += "}";
     server.send(200, "application/json", json);
 }
@@ -364,37 +430,18 @@ void startAPMode() {
     Serial.print("AP IP address: ");
     Serial.println(myIP); // Print to debug
     
+    /* Captive Portal Removed
     if (myIP) {
         dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
         dnsServer.start(53, "*", myIP);
     }
+    */
 
     server.on("/", handleRoot);
     
-    // Captive Portal Redirection
-    // Captive Portal: Serve Content Directly (200 OK) instead of Redirect
-    // This stops "Redirect Loop" errors and works better on Android/iOS
-    // Intelligent Captive Redirect
-    // If request Host is NOT our IP, redirect to IP.
-    // Captive Portal: Serve Content Directly (200 OK) - Per Tutorial
-    // https://iotespresso.com/create-captive-portal-using-esp32/
-    // We serve the index page for ANY request that isn't a specific API command.
-    auto servePortal = []() {
-        server.send_P(200, "text/html", index_html);
-    };
-
-    server.on("/generate_204", servePortal);
-    server.on("/fwlink", servePortal);
-    server.on("/hotspot-detect.html", servePortal);
-    server.on("/canonical.html", servePortal);
-    server.on("/success.txt", servePortal);
-    server.on("/ncsi.txt", servePortal);
+    // Captive Portal Handlers Removed
     
-    // Wildcard - effectively acts as the 'canHandle -> true' from the tutorial
-    server.onNotFound([servePortal]() {
-        if (!isAPMode()) return;
-        servePortal();
-    });
+    server.onNotFound(handleNotFound);
 
     server.on("/calibrate", handleCalibrate);
     server.on("/get_settings", handleGetSettings);
@@ -413,6 +460,32 @@ void startAPMode() {
         should_disconnect = true; // Trigger disconnect in main loop
     });
     
+    // OTA Update Handler
+    server.on("/update", HTTP_POST, []() {
+      server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+      delay(500);
+      ESP.restart();
+    }, []() {
+      HTTPUpload& upload = server.upload();
+      if (upload.status == UPLOAD_FILE_START) {
+        Serial.printf("Update: %s\n", upload.filename.c_str());
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { // start with max available size
+          Update.printError(Serial);
+        }
+      } else if (upload.status == UPLOAD_FILE_WRITE) {
+        /* flashing firmware to ESP*/
+        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+          Update.printError(Serial);
+        }
+      } else if (upload.status == UPLOAD_FILE_END) {
+        if (Update.end(true)) { //true to set the size to the current progress
+          Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+        } else {
+          Update.printError(Serial);
+        }
+      }
+    });
+    
     server.begin();
     ap_mode_active = true;
     ap_start_time = millis();
@@ -429,7 +502,7 @@ void stopAPMode() {
     Serial.println("Stopping AP Mode...");
     delay(100); 
     server.stop();
-    dnsServer.stop();
+    // dnsServer.stop(); Removed
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_OFF);
     ap_mode_active = false;
@@ -448,7 +521,7 @@ void createWebServer() {
 
 void handleWebServer() {
     if (ap_mode_active) {
-        dnsServer.processNextRequest();
+        // dnsServer.processNextRequest(); Removed
         server.handleClient();
         
         if (should_disconnect) {

@@ -34,6 +34,16 @@ The device features a built-in Wi-Fi Access Point and Web Interface for remote c
 4.  **Calibrate:** Use the "Calibrate" button on the mobile interface to zero the inclinometer remotely.
 5.  **Disconnect:** Press the BOOT button again (short press) or use the "Disconnect" button in the app to turn off Wi-Fi.
 
+## OTA Firmware Updates
+
+You can update the device firmware wirelessly without removing it from the vehicle.
+
+1.  **Export Binary:** In Arduino IDE, go to `Sketch -> Export Compiled Binary` to create a `.bin` file.
+2.  **Connect:** Connect to the `Tacomometer` Wi-Fi network.
+3.  **Navigate:** Go to `http://192.168.4.1` and click on **Device Settings**.
+4.  **Upload:** Scroll to **Firmware Update**, select your `.bin` file, and click **Flash**.
+5.  **Wait:** The device will upload the file and automatically reboot into the new version.
+
 | Sensor Pin | ESP32 Pin | Description |
 | :--- | :--- | :--- |
 | **VCC** | 3.3V | Power |
