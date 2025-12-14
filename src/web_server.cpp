@@ -91,10 +91,34 @@ const char index_html[] PROGMEM = R"rawliteral(
     input[type=number] { padding: 10px; background: #333; color: white; border: 1px solid #555; border-radius: 6px; width: 100%; font-size: 16px; box-sizing: border-box; }
     
     /* Color Picker */
-    .color-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+    .color-row { 
+        display: flex; 
+        gap: 16px; 
+        overflow-x: auto; 
+        padding: 20px 50%; /* Center alignment padding */
+        scrollbar-width: none; 
+        scroll-snap-type: x mandatory;
+        align-items: center;
+        margin-left: -16px; margin-right: -16px; /* Offset card padding */
+    }
     .color-row::-webkit-scrollbar { display: none; }
-    .color-btn { width: 48px; height: 48px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; }
-    .color-btn.selected { border-color: white; transform: scale(1.1); }
+    .color-btn { 
+        width: 40px; height: 40px; 
+        border-radius: 50%; 
+        border: 2px solid transparent; 
+        cursor: pointer; 
+        flex-shrink: 0; 
+        scroll-snap-align: center;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        opacity: 0.6;
+        transform: scale(0.8);
+    }
+    .color-btn.selected { 
+        border-color: white; 
+        transform: scale(1.3); 
+        opacity: 1;
+        box-shadow: 0 0 15px var(--primary);
+    }
     
     /* Stats Table */
     .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; }
@@ -192,6 +216,7 @@ const char index_html[] PROGMEM = R"rawliteral(
             <div><label>Roll</label><input type="number" id="crit_r" onchange="saveCrit()"></div>
             <div><label>Pitch</label><input type="number" id="crit_p" onchange="saveCrit()"></div>
           </div>
+          <button class="small" style="margin-top:10px;" onclick="setDefaultCrit()">Set to Default</button>
       </div>
       
       <div class="card">
@@ -326,6 +351,12 @@ const char index_html[] PROGMEM = R"rawliteral(
         if(COLORS[idx]) {
             document.documentElement.style.setProperty('--primary', COLORS[idx]);
         }
+        
+        // Auto-Scroll to center
+        setTimeout(() => {
+             let el = document.getElementById('c'+idx);
+             if(el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }, 100);
     }
 
     function setColor(idx) { 
@@ -339,6 +370,14 @@ const char index_html[] PROGMEM = R"rawliteral(
         let r=document.getElementById('crit_r').value; 
         let p=document.getElementById('crit_p').value;
         fetch(`/set_critical?roll=${r}&pitch=${p}`, {method:'POST'});
+    }
+    
+    function setDefaultCrit() {
+        if(confirm("Reset Critical Angles to 50°/50°?")) {
+            document.getElementById('crit_r').value = 50;
+            document.getElementById('crit_p').value = 50;
+            saveCrit();
+        }
     }
     
     function updateSmoothUI(v) {
