@@ -88,11 +88,12 @@ const char index_html[] PROGMEM = R"rawliteral(
     
     input[type=range] { width: 100%; accent-color: var(--primary); }
     select { padding: 10px; background: #333; color: white; border: 1px solid #555; border-radius: 6px; width: 100%; font-size: 16px; }
-    input[type=number] { padding: 10px; background: #333; color: white; border: 1px solid #555; border-radius: 6px; width: 100%; font-size: 16px; }
+    input[type=number] { padding: 10px; background: #333; color: white; border: 1px solid #555; border-radius: 6px; width: 100%; font-size: 16px; box-sizing: border-box; }
     
     /* Color Picker */
-    .color-row { display: flex; justify-content: space-between; gap: 8px; }
-    .color-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; flex: 1;}
+    .color-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+    .color-row::-webkit-scrollbar { display: none; }
+    .color-btn { width: 48px; height: 48px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; }
     .color-btn.selected { border-color: white; transform: scale(1.1); }
     
     /* Stats Table */
@@ -181,7 +182,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 
        <div class="card">
           <span class="card-title">Gauge Smoothing</span>
-          <input type="range" id="smooth" min="1" max="100" onchange="saveSmooth()">
+          <input type="range" id="smooth" min="1" max="100" oninput="updateSmoothUI(this.value)" onchange="saveSmooth(this.value)">
           <div class="row"><span style="font-size:12px">Slow</span> <span id="smooth_val" style="color:var(--primary)">100%</span> <span style="font-size:12px">Fast</span></div>
       </div>
 
@@ -248,10 +249,19 @@ const char index_html[] PROGMEM = R"rawliteral(
 
   <script>
     // Navigation
+    var statsTimer = null;
+    const COLORS = ['#FF6D00', '#2196F3', '#4CAF50', '#F44336', '#9C27B0', '#FFEB3B'];
+
     function nav(pageId) {
+        if(statsTimer) { clearInterval(statsTimer); statsTimer=null; }
+        
         document.querySelectorAll('.container').forEach(e => e.classList.remove('active'));
         document.getElementById(pageId).classList.add('active');
-        if(pageId === 'stats') loadStats();
+        
+        if(pageId === 'stats') {
+            loadStats();
+            statsTimer = setInterval(loadStats, 3000);
+        }
         if(pageId === 'customize' || pageId === 'system') loadSettings();
     }
     
@@ -269,11 +279,8 @@ const char index_html[] PROGMEM = R"rawliteral(
     function loadSettings() {
         fetch('/get_settings').then(r=>r.json()).then(d => {
             // Colors
-            for(let i=0;i<6;i++) {
-                let el = document.getElementById('c'+i);
-                el.classList.remove('selected');
-                if(d.color == i) el.classList.add('selected');
-            }
+            applyTheme(d.color);
+            
             // Crit
             document.getElementById('crit_r').value = d.crit_r;
             document.getElementById('crit_p').value = d.crit_p;
@@ -308,16 +315,38 @@ const char index_html[] PROGMEM = R"rawliteral(
     }
 
     // Setters
-    function setColor(idx) { fetch('/set_color?val='+idx, {method:'POST'}).then(loadSettings); }
+    function applyTheme(idx) {
+        for(let i=0;i<6;i++) {
+            let el = document.getElementById('c'+i);
+            if(el) {
+                el.classList.remove('selected');
+                if(i == idx) el.classList.add('selected');
+            }
+        }
+        if(COLORS[idx]) {
+            document.documentElement.style.setProperty('--primary', COLORS[idx]);
+        }
+    }
+
+    function setColor(idx) { 
+        applyTheme(idx);
+        fetch('/set_color?val='+idx, {method:'POST'}); 
+    }
+    
     function setRot(v) { fetch('/set_rotation?val='+v, {method:'POST'}); }
+    
     function saveCrit() { 
         let r=document.getElementById('crit_r').value; 
         let p=document.getElementById('crit_p').value;
         fetch(`/set_critical?roll=${r}&pitch=${p}`, {method:'POST'});
     }
-    function saveSmooth() {
-        let v = document.getElementById('smooth').value;
+    
+    function updateSmoothUI(v) {
         document.getElementById('smooth_val').innerText = v + '%';
+    }
+    
+    function saveSmooth(v) {
+        updateSmoothUI(v);
         fetch('/set_smoothing?val='+v, {method:'POST'});
     }
     function setPixelShift() {
