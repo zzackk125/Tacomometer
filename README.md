@@ -4,8 +4,6 @@
 
 A high-performance digital inclinometer for off-road enthusiasts, designed with the aesthetic of the 2nd Gen Toyota Tacoma. Built for the **Waveshare ESP32-C6-Touch-AMOLED-1.43** circular display, it features smooth 60FPS animations, accurate pitch and roll tracking, and customizable alerts.
 
-![Tacomometer Demo](assets/demo.gif)
-
 <p align="center">
   <img src="assets/device_roll_crit.jpg" width="30%" />
   <img src="assets/device_pitch_crit.jpg" width="30%" />
