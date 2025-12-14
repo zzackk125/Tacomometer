@@ -28,4 +28,7 @@ int getUIColor();
 void setPixelShift(bool enabled);
 bool getPixelShift();
 void resetSettings();
+void resetAllTimeStats();
+void getAllTimeMax(float* r_left, float* r_right, float* p_fwd, float* p_back);
+void getSessionMax(float* r_left, float* r_right, float* p_fwd, float* p_back);
 

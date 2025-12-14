@@ -17,3 +17,5 @@ float getRoll();
 float getPitch();
 void zeroIMU(); // Updates RAM offsets only
 void saveIMUOffsets(); // Explicitly save to NVS
+void setSmoothing(int percent); // 0-100
+int getSmoothing();

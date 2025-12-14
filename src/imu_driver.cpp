@@ -22,6 +22,13 @@ Preferences prefs;
 float offsetRoll = 0.0;
 float offsetPitch = 0.0;
 
+// Smoothing
+float smoothing_alpha = 1.0; // 1.0 = No smoothing (Instant), 0.1 = Heavy smoothing
+int smoothing_percent = 100; // 100% = Instant
+
+float smoothRoll = 0.0;
+float smoothPitch = 0.0;
+
 void initIMU() {
     // Initialize QMI8658
     // Address is usually 0x6B or 0x6A. Demo used QMI8658_L_SLAVE_ADDRESS which is 0x6B.
@@ -41,7 +48,18 @@ void initIMU() {
     prefs.begin("imu", false); // Namespace "imu", read-only false
     offsetRoll = prefs.getFloat("roll_off", 0.0);
     offsetPitch = prefs.getFloat("pitch_off", 0.0);
-    Serial.printf("Loaded Offsets: Roll=%f, Pitch=%f\n", offsetRoll, offsetPitch);
+    
+    // Load Smoothing
+    smoothing_percent = prefs.getInt("smooth", 100); // Default 100 (Instant)
+    if(smoothing_percent < 1) smoothing_percent = 1;
+    if(smoothing_percent > 100) smoothing_percent = 100;
+    
+    // Convert percent to alpha
+    // 100% -> Alpha 1.0
+    // 1% -> Alpha 0.01
+    smoothing_alpha = (float)smoothing_percent / 100.0;
+    
+    Serial.printf("Loaded Offsets: Roll=%f, Pitch=%f, Smooth=%d%%\n", offsetRoll, offsetPitch, smoothing_percent);
 }
 
 void updateIMU() {
@@ -51,8 +69,23 @@ void updateIMU() {
             float rawRoll = atan2(acc.y, acc.z) * 180.0 / PI;
             float rawPitch = atan2(-acc.x, sqrt(acc.y * acc.y + acc.z * acc.z)) * 180.0 / PI;
             
-            currentRoll = rawRoll - offsetRoll;
-            currentPitch = rawPitch - offsetPitch;
+            float rawPitch = atan2(-acc.x, sqrt(acc.y * acc.y + acc.z * acc.z)) * 180.0 / PI;
+            
+            float targetRoll = rawRoll - offsetRoll;
+            float targetPitch = rawPitch - offsetPitch;
+            
+            // Apply Smoothing (EMA)
+            // current = alpha * target + (1-alpha) * current
+            if (smoothing_alpha >= 0.99) {
+                 smoothRoll = targetRoll;
+                 smoothPitch = targetPitch;
+            } else {
+                 smoothRoll = (smoothing_alpha * targetRoll) + ((1.0 - smoothing_alpha) * smoothRoll);
+                 smoothPitch = (smoothing_alpha * targetPitch) + ((1.0 - smoothing_alpha) * smoothPitch);
+            }
+            
+            currentRoll = smoothRoll;
+            currentPitch = smoothPitch;
         }
     }
 }
@@ -81,8 +114,21 @@ void zeroIMU() {
     currentPitch = 0;
 }
 
-void saveIMUOffsets() {
     prefs.putFloat("roll_off", offsetRoll);
     prefs.putFloat("pitch_off", offsetPitch);
     Serial.println("Offsets Saved to NVS (Background)");
+}
+
+void setSmoothing(int percent) {
+    if(percent < 1) percent = 1;
+    if(percent > 100) percent = 100;
+    
+    smoothing_percent = percent;
+    smoothing_alpha = (float)smoothing_percent / 100.0;
+    
+    prefs.putInt("smooth", smoothing_percent);
+}
+
+int getSmoothing() {
+    return smoothing_percent;
 }

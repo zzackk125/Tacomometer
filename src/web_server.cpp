@@ -10,7 +10,9 @@
 #include <WebServer.h>
 #include <Update.h>
 #include "imu_driver.h" // For zeroIMU
-#include "ui.h" // For hideToast, triggerCalibrationUI
+#include <Preferences.h> // For WiFi Timeout Logic
+#include "ui.h" // For hideToast, triggerCalibrationUI, getters
+#include "imu_driver.h" // For zeroIMU, smoothing getters
 
 WebServer server(80);
 // DNSServer dnsServer; Removed
@@ -19,6 +21,10 @@ uint32_t ap_start_time = 0;
 bool toast_visible = false;
 uint32_t connection_start_time = 0;
 bool client_connected_flag = false;
+
+// Config
+static Preferences web_prefs;
+static int wifi_timeout_sec = 45; // Default 45s
 
 // --- HTML Content ---
 const char index_html[] PROGMEM = R"rawliteral(
@@ -34,38 +40,31 @@ const char index_html[] PROGMEM = R"rawliteral(
       --bg: #121212;
       --surface: #1E1E1E;
       --on-surface: #E0E0E0;
-      --ripple: rgba(255, 109, 0, 0.3);
-      --error: #CF6679;
     }
     body {
       background-color: var(--bg);
       color: var(--on-surface);
       font-family: 'Roboto', sans-serif;
       margin: 0;
-      padding: 20px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
     }
-    h1 { font-weight: 300; letter-spacing: 1px; margin-bottom: 24px; text-align: center; }
-    .container {
-      width: 100%;
-      max-width: 480px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
+    h1 { font-weight: 300; letter-spacing: 1px; margin-bottom: 20px; text-align: center; font-size: 24px; }
+    .container { width: 100%; max-width: 480px; display: none; flex-direction: column; gap: 12px; }
+    .container.active { display: flex; }
+    
     .card {
       background-color: var(--surface);
       border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
-    .card-title { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .card-title { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
     
     button {
       background-color: var(--surface);
@@ -77,271 +76,283 @@ const char index_html[] PROGMEM = R"rawliteral(
       font-weight: 600;
       text-transform: uppercase;
       cursor: pointer;
-      transition: all 0.2s;
+      width: 100%;
     }
-    button:active { transform: scale(0.98); background: var(--ripple); }
+    button:active { transform: scale(0.98); opacity: 0.8; }
     button.filled { background-color: var(--primary); color: #000; border: none; }
-    button.danger { color: var(--error); border-color: var(--error); }
-    button.danger:active { background: rgba(207, 102, 121, 0.2); }
+    button.danger { color: #CF6679; border-color: #CF6679; }
+    button.small { padding: 8px; font-size: 12px; }
     
+    .row { display: flex; justify-content: space-between; align-items: center; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
     
-    input {
-      background: #2C2C2C; border: 1px solid #444; color: white;
-      padding: 12px; border-radius: 6px; font-size: 16px; width: 100%; box-sizing: border-box;
-    }
+    input[type=range] { width: 100%; accent-color: var(--primary); }
+    select { padding: 10px; background: #333; color: white; border: 1px solid #555; border-radius: 6px; width: 100%; font-size: 16px; }
+    input[type=number] { padding: 10px; background: #333; color: white; border: 1px solid #555; border-radius: 6px; width: 100%; font-size: 16px; }
     
     /* Color Picker */
-    .color-row { display: flex; justify-content: space-between; margin-top: 10px; }
-    .color-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+    .color-row { display: flex; justify-content: space-between; gap: 8px; }
+    .color-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; flex: 1;}
     .color-btn.selected { border-color: white; transform: scale(1.1); }
     
-    .modal {
-        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center;
-        padding: 20px; box-sizing: border-box;
-    }
+    /* Stats Table */
+    .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; }
+    .stat-val { font-weight: bold; color: var(--primary); }
     
     #toast {
-       visibility: hidden; min-width: 250px; background-color: var(--surface); color: white;
-       border: 1px solid var(--primary); text-align: center; border-radius: 8px; padding: 16px;
-       position: fixed; z-index: 200; bottom: 30px; left: 50%; transform: translateX(-50%);
-       box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+       visibility: hidden; min-width: 200px; background: #333; color: white;
+       border: 1px solid var(--primary); text-align: center; border-radius: 8px; padding: 12px;
+       position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 100;
     }
-    #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
-    @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
-    @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
-  /* Responsive fixes */
-    @media (max-width: 360px) {
-      body { padding: 10px; }
-      .container { width: 100%; }
-      .card { padding: 16px; }
-      h1 { margin-bottom: 16px; font-size: 24px; }
-      button { padding: 12px; font-size: 14px; }
-      .grid-4 { grid-template-columns: repeat(2, 1fr); } 
-    }
+    #toast.show { visibility: visible; }
   </style>
 </head>
 <body>
   <h1>Tacomometer</h1>
   
-  <div id="mainPage" class="container">
+  <!-- HOME PAGE -->
+  <div id="home" class="container active">
+    <!-- Actions -->
     <div class="card">
-        <span class="card-title">Actions</span>
-        <button class="filled" onclick="doAction('calibrate')">Calibrate Zero</button>
-        <button onclick="alert('Stats Feature Coming Soon!')">View Stats</button>
-        <button onclick="showSettings()">Device Settings</button>
+        <span class="card-title">Live Controls</span>
+         <button class="filled" onclick="doAction('calibrate')">Calibrate Zero</button>
     </div>
     
+    <!-- Navigation -->
     <div class="card">
-        <span class="card-title">System</span>
-        <button class="danger" onclick="doAction('reboot')">Reboot Device</button>
+        <span class="card-title">Menu</span>
+        <button onclick="nav('stats')">View Stats</button>
+        <button onclick="nav('settings')">Device Settings</button>
+    </div>
+    
+     <div class="card">
+        <span class="card-title">Power</span>
         <button class="danger" onclick="doAction('disconnect')">Disconnect WiFi</button>
     </div>
   </div>
 
-  <!-- Settings Page (Hidden by default, same container style) -->
-  <div id="settingsPage" class="container" style="display:none;">
-    <div class="card">
-      <h2 style="margin-top:0; border-bottom: 1px solid #333; padding-bottom: 10px; display:flex; justify-content:space-between; align-items:center;">
-          Settings
-          <span id="fw_ver" style="font-size:10px; color:#555; font-weight:normal;">v1.0.0</span>
-      </h2>
-      
-      <span class="card-title">Screen Rotation</span>
-      <div class="grid-4">
-        <button id="rot0" onclick="setRot(0)">0&deg;</button>
-        <button id="rot90" onclick="setRot(90)">90&deg;</button>
-        <button id="rot180" onclick="setRot(180)">180&deg;</button>
-        <button id="rot270" onclick="setRot(270)">270&deg;</button>
+  <!-- STATS PAGE -->
+  <div id="stats" class="container">
+      <div class="card">
+          <span class="card-title">System Status</span>
+          <div class="stat-row"><span>Uptime</span><span id="st_uptime" class="stat-val">-</span></div>
+          <div class="stat-row"><span>Clients</span><span id="st_clients" class="stat-val">-</span></div>
       </div>
       
-      <span class="card-title" style="margin-top: 16px;">Critical Angles (Deg)</span>
-      <div class="grid-2">
-        <div>
-            <label style="font-size:12px; color:#888;">Roll Limit</label>
-            <input type="number" id="crit_r" onchange="saveCrit()">
-        </div>
-        <div>
-            <label style="font-size:12px; color:#888;">Pitch Limit</label>
-            <input type="number" id="crit_p" onchange="saveCrit()">
-        </div>
-      </div>
-      <button style="margin-top:8px; padding:10px; font-size:12px;" onclick="resetCrit()">Reset to Default (50&deg;)</button>
-      
-      <!-- New Protection Section -->
-      <span class="card-title" style="margin-top: 16px;">Protection</span>
-      <div style="display:flex; justify-content:space-between; align-items:center; background:#2C2C2C; padding:10px; border-radius:6px;">
-          <label style="color:white; font-size:14px;">Burn-in Protection (Pixel Shift)</label>
-          <input type="checkbox" id="pshift" style="width:20px; height:20px;" onchange="setPixelShift()">
+      <div class="card">
+          <span class="card-title">Session Max Angles</span>
+          <div class="stat-row"><span>Roll (Left/Right)</span><span id="st_s_roll" class="stat-val">-</span></div>
+          <div class="stat-row"><span>Pitch (Fwd/Back)</span><span id="st_s_pitch" class="stat-val">-</span></div>
       </div>
       
-      <span class="card-title" style="margin-top: 16px;">Display Theme</span>
-      <div class="color-row">
-        <!-- Orange, Blue, Green, Red, Purple, Yellow -->
-        <div class="color-btn" style="background:#FF6D00" onclick="setColor(0)" id="c0"></div>
-        <div class="color-btn" style="background:#2196F3" onclick="setColor(1)" id="c1"></div>
-        <div class="color-btn" style="background:#4CAF50" onclick="setColor(2)" id="c2"></div>
-        <div class="color-btn" style="background:#F44336" onclick="setColor(3)" id="c3"></div>
-        <div class="color-btn" style="background:#9C27B0" onclick="setColor(4)" id="c4"></div>
-        <div class="color-btn" style="background:#FFEB3B" onclick="setColor(5)" id="c5"></div>
+      <div class="card">
+          <span class="card-title">All Time Max</span>
+          <div class="stat-row"><span>Roll (Left/Right)</span><span id="st_at_roll" class="stat-val">-</span></div>
+          <div class="stat-row"><span>Pitch (Fwd/Back)</span><span id="st_at_pitch" class="stat-val">-</span></div>
+          <button class="small danger" style="margin-top:10px;" onclick="resetStats()">Reset All Time</button>
       </div>
       
-      <div style="margin-top: 24px; display:flex; gap:10px;">
-        <button class="filled" style="flex:1;" onclick="showMain()">Main Menu</button>
-      </div>
-
-      <span class="card-title" style="margin-top: 24px;">Firmware Update</span>
-      <div style="background:#2C2C2C; padding:10px; border-radius:6px; display:flex; flex-direction:column; gap:10px;">
-          <input type="file" id="fw_file" accept=".bin" style="display:none;" onchange="fileSelected()">
-          <div style="display:flex; gap:10px;">
-             <button style="flex:1; padding:10px; font-size:12px;" onclick="document.getElementById('fw_file').click()">Select .bin</button>
-             <button id="flash_btn" class="filled" style="flex:1; padding:10px; font-size:12px; display:none;" onclick="startFlash()">Flash</button>
-          </div>
-          <span id="file_name" style="font-size:12px; color:#aaa; text-align:center;">No file selected</span>
-      </div>
-    </div>
+      <button onclick="nav('home')">Back</button>
   </div>
 
+  <!-- SETTINGS ROOT -->
+  <div id="settings" class="container">
+      <div class="card">
+          <span class="card-title">Configuration</span>
+          <button onclick="nav('customize')">Customize UI</button>
+          <button onclick="nav('system')">System & Update</button>
+      </div>
+      <button onclick="nav('home')">Back</button>
+  </div>
 
+  <!-- CUSTOMIZE PAGE -->
+  <div id="customize" class="container">
+      <div class="card">
+          <span class="card-title">Theme Color</span>
+          <div class="color-row">
+            <div class="color-btn" style="background:#FF6D00" onclick="setColor(0)" id="c0"></div>
+            <div class="color-btn" style="background:#2196F3" onclick="setColor(1)" id="c1"></div>
+            <div class="color-btn" style="background:#4CAF50" onclick="setColor(2)" id="c2"></div>
+            <div class="color-btn" style="background:#F44336" onclick="setColor(3)" id="c3"></div>
+            <div class="color-btn" style="background:#9C27B0" onclick="setColor(4)" id="c4"></div>
+            <div class="color-btn" style="background:#FFEB3B" onclick="setColor(5)" id="c5"></div>
+          </div>
+      </div>
 
-  <div id="toast">Command Sent</div>
+       <div class="card">
+          <span class="card-title">Gauge Smoothing</span>
+          <input type="range" id="smooth" min="1" max="100" onchange="saveSmooth()">
+          <div class="row"><span style="font-size:12px">Slow</span> <span id="smooth_val" style="color:var(--primary)">100%</span> <span style="font-size:12px">Fast</span></div>
+      </div>
+
+      <div class="card">
+          <span class="card-title">Critical Angles</span>
+          <div class="grid-2">
+            <div><label>Roll</label><input type="number" id="crit_r" onchange="saveCrit()"></div>
+            <div><label>Pitch</label><input type="number" id="crit_p" onchange="saveCrit()"></div>
+          </div>
+      </div>
+      
+      <div class="card">
+          <span class="card-title">Rotation</span>
+          <select id="rot" onchange="setRot(this.value)">
+              <option value="0">0&deg; (Portrait)</option>
+              <option value="90">90&deg; (Landscape Right)</option>
+              <option value="180">180&deg; (Inverted)</option>
+              <option value="270">270&deg; (Landscape Left)</option>
+          </select>
+      </div>
+
+      <button onclick="nav('settings')">Back</button>
+  </div>
+
+  <!-- SYSTEM PAGE -->
+  <div id="system" class="container">
+      <div class="card">
+          <span class="card-title">Power Saving</span>
+          <div class="row">
+              <label>Burn-in Protection</label>
+              <input type="checkbox" id="pshift" onchange="setPixelShift()">
+          </div>
+          <div style="margin-top:10px;">
+              <label>WiFi Timeout</label>
+              <select id="wto" onchange="setWifiTimeout(this.value)">
+                  <option value="0">Always On</option>
+                  <option value="30">30 Seconds</option>
+                  <option value="45">45 Seconds</option>
+                  <option value="60">1 Minute</option>
+                  <option value="120">2 Minutes</option>
+                  <option value="300">5 Minutes</option>
+              </select>
+          </div>
+      </div>
+      
+      <div class="card">
+          <span class="card-title">Firmware Update</span>
+          <input type="file" id="fw_file" accept=".bin" style="display:none;" onchange="fileSelected()">
+          <button class="small" onclick="document.getElementById('fw_file').click()">Select .bin File</button>
+          <span id="file_name" style="text-align:center; font-size:12px; margin-top:5px;"></span>
+          <button id="flash_btn" class="filled" style="display:none; margin-top:5px;" onclick="startFlash()">Flash Firmware</button>
+      </div>
+
+      <div class="card">
+          <span class="card-title">Admin</span>
+          <button class="danger" onclick="doAction('reboot')">Reboot Device</button>
+          <button class="danger" style="margin-top:10px;" onclick="doAction('reset_settings')">Factory Reset</button>
+      </div>
+      
+      <button onclick="nav('settings')">Back</button>
+  </div>
+
+  <div id="toast">Msg</div>
 
   <script>
-    // Constants
-    const colors = [0,1,2,3,4,5];
+    // Navigation
+    function nav(pageId) {
+        document.querySelectorAll('.container').forEach(e => e.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        if(pageId === 'stats') loadStats();
+        if(pageId === 'customize' || pageId === 'system') loadSettings();
+    }
     
-    function doAction(action) {
-      if(action === 'reboot' && !confirm("Reboot Device?")) return;
-      if(action === 'disconnect') {
-          // Special case for disconnect to prevent hang
-          fetch('/disconnect', {method:'POST'}).then(showToast("Disconnecting..."));
-          return;
-      }
-      
-      fetch('/' + action, {method: 'POST'})
-        .then(r => r.ok ? showToast("Success") : showToast("Error"))
-        .catch(e => showToast("Connection Failed"));
+    // Shared Utils
+    function showToast(msg) {
+        var x = document.getElementById("toast"); x.innerText = msg; x.className = "show";
+        setTimeout(() => x.className = "", 3000);
+    }
+    function doAction(act) {
+        if((act.includes('reboot') || act.includes('reset')) && !confirm("Are you sure?")) return;
+        fetch('/'+act, {method:'POST'}).then(r => showToast(r.ok?"OK":"Error"));
     }
 
-    function showToast(msg) {
-      var x = document.getElementById("toast");
-      x.innerText = msg;
-      x.className = "show";
-      setTimeout(() => x.className = x.className.replace("show", ""), 3000);
+    // Data Loading
+    function loadSettings() {
+        fetch('/get_settings').then(r=>r.json()).then(d => {
+            // Colors
+            for(let i=0;i<6;i++) {
+                let el = document.getElementById('c'+i);
+                el.classList.remove('selected');
+                if(d.color == i) el.classList.add('selected');
+            }
+            // Crit
+            document.getElementById('crit_r').value = d.crit_r;
+            document.getElementById('crit_p').value = d.crit_p;
+            // Rot
+            document.getElementById('rot').value = d.rot;
+            // Smooth
+            document.getElementById('smooth').value = d.smooth;
+            document.getElementById('smooth_val').innerText = d.smooth + '%';
+            // System
+            document.getElementById('pshift').checked = (d.pshift == 1);
+            document.getElementById('wto').value = d.wto;
+        });
     }
-    
-    function showSettings() {
-        document.getElementById('mainPage').style.display = 'none';
-        document.getElementById('settingsPage').style.display = 'flex';
-        refreshSettings();
-    }
-    
-    function showMain() {
-        document.getElementById('settingsPage').style.display = 'none';
-        document.getElementById('mainPage').style.display = 'flex';
-    }
-    
-    function refreshSettings() {
-        fetch('/get_settings').then(r => r.json()).then(data => {
-            // Update ROT
-            [0,90,180,270].forEach(d => {
-                document.getElementById('rot'+d).classList.remove('filled');
-                if(data.rot == d) document.getElementById('rot'+d).classList.add('filled');
-            });
-            
-            // Update CRIT
-            document.getElementById('crit_r').value = data.crit_r;
-            document.getElementById('crit_p').value = data.crit_p;
-            
-            // Update COLOR
-            colors.forEach(c => {
-                 document.getElementById('c'+c).classList.remove('selected');
-                 if(data.color == c) document.getElementById('c'+c).classList.add('selected');
-            });
-            
-            // Update Version
-            if(data.ver) document.getElementById('fw_ver').innerText = "v" + data.ver;
-            
-            // Update Pixel Shift
-            document.getElementById('pshift').checked = (data.pshift == 1);
+
+    function loadStats() {
+        fetch('/get_stats').then(r=>r.json()).then(d => {
+            document.getElementById('st_uptime').innerText = formatTime(d.uptime);
+            document.getElementById('st_clients').innerText = d.clients;
+            document.getElementById('st_s_roll').innerText = d.s_rl + "° / " + d.s_rr + "°";
+            document.getElementById('st_s_pitch').innerText = d.s_pf + "° / " + d.s_pb + "°";
+            document.getElementById('st_at_roll').innerText = d.at_rl + "° / " + d.at_rr + "°";
+            document.getElementById('st_at_pitch').innerText = d.at_pf + "° / " + d.at_pb + "°";
         });
     }
     
-    function setRot(deg) {
-        fetch('/set_rotation?val=' + deg, {method:'POST'}).then(refreshSettings);
+    function formatTime(s) {
+        if(s < 60) return s + "s";
+        let m = Math.floor(s/60);
+        if(m < 60) return m + "m";
+        let h = Math.floor(m/60);
+        return h + "h " + (m%60) + "m";
     }
-    
-    function saveCrit() {
-        let r = document.getElementById('crit_r').value;
-        let p = document.getElementById('crit_p').value;
+
+    // Setters
+    function setColor(idx) { fetch('/set_color?val='+idx, {method:'POST'}).then(loadSettings); }
+    function setRot(v) { fetch('/set_rotation?val='+v, {method:'POST'}); }
+    function saveCrit() { 
+        let r=document.getElementById('crit_r').value; 
+        let p=document.getElementById('crit_p').value;
         fetch(`/set_critical?roll=${r}&pitch=${p}`, {method:'POST'});
     }
-    
-    function resetCrit() {
-        document.getElementById('crit_r').value = 50;
-        document.getElementById('crit_p').value = 50;
-        saveCrit();
+    function saveSmooth() {
+        let v = document.getElementById('smooth').value;
+        document.getElementById('smooth_val').innerText = v + '%';
+        fetch('/set_smoothing?val='+v, {method:'POST'});
     }
-    
-
     function setPixelShift() {
-        var val = document.getElementById('pshift').checked ? 1 : 0;
-        fetch('/set_pixel_shift?val=' + val, {method:'POST'});
+        let v = document.getElementById('pshift').checked ? 1 : 0;
+        fetch('/set_pixel_shift?val='+v, {method:'POST'});
     }
-
-    function setColor(idx) {
-        fetch('/set_color?val=' + idx, {method:'POST'}).then(refreshSettings);
+    function setWifiTimeout(v) {
+        fetch('/set_wifi_timeout?val='+v, {method:'POST'});
     }
-    
-    function fileSelected() {
-        var input = document.getElementById('fw_file');
-        var nameLbl = document.getElementById('file_name');
-        var btn = document.getElementById('flash_btn');
-        
-        if (input.files && input.files[0]) {
-            nameLbl.innerText = input.files[0].name;
-            btn.style.display = 'block';
-        } else {
-            nameLbl.innerText = "No file selected";
-            btn.style.display = 'none';
+    function resetStats() {
+        if(confirm("Reset All Time Stats?")) {
+            fetch('/reset_stats', {method:'POST'}).then(loadStats);
         }
     }
     
+    // OTA
+    function fileSelected() {
+        var i = document.getElementById('fw_file');
+        if(i.files[0]) {
+            document.getElementById('file_name').innerText = i.files[0].name;
+            document.getElementById('flash_btn').style.display='block';
+        }
+    }
     function startFlash() {
-        var input = document.getElementById('fw_file');
-        if (!input.files || !input.files[0]) return;
-        
-        if(!confirm("Flash " + input.files[0].name + "? Device will reboot.")) return;
-        
-        var data = new FormData();
-        data.append("update", input.files[0]);
-        
-        showToast("Uploading... Please Wait...");
-        
-        var xhr = new XMLHttpRequest();
-        xhr.upload.addEventListener("progress", function(e) {
-            if (e.lengthComputable) {
-                var percent = Math.round((e.loaded / e.total) * 100);
-                document.getElementById('file_name').innerText = "Uploading: " + percent + "%";
-            }
-        });
-        
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState == 4) {
-                if(xhr.status == 200) {
-                     showToast("Update Success! Rebooting...");
-                     setTimeout(() => location.reload(), 4000);
-                } else {
-                     showToast("Update Failed");
-                     document.getElementById('file_name').innerText = "Failed";
-                }
-            }
-        };
-        
-        xhr.open("POST", "/update");
-        xhr.send(data);
+         var f = document.getElementById('fw_file').files[0];
+         if(!f || !confirm("Flash firmware?")) return;
+         var fd = new FormData(); fd.append("update", f);
+         showToast("Uploading...");
+         var xhr = new XMLHttpRequest();
+         xhr.open("POST", "/update");
+         xhr.onload = function() { 
+             if(xhr.status==200) { showToast("Success! Rebooting..."); setTimeout(()=>location.reload(),4000); } 
+             else showToast("Failed");
+         };
+         xhr.send(fd);
     }
   </script>
 </body>
@@ -380,7 +391,9 @@ void handleGetSettings() {
     json += "\"crit_p\":" + String(getCriticalPitch()) + ",";
     json += "\"color\":" + String(getUIColor()) + ",";
     json += "\"ver\":\"" + String(FIRMWARE_VERSION) + "\",";
-    json += "\"pshift\":" + String(getPixelShift() ? 1 : 0);
+    json += "\"pshift\":" + String(getPixelShift() ? 1 : 0) + ",";
+    json += "\"smooth\":" + String(getSmoothing()) + ",";
+    json += "\"wto\":" + String(getWiFiTimeout());
     json += "}";
     server.send(200, "application/json", json);
 }
@@ -433,9 +446,64 @@ void handleSetPixelShift() {
     }
 }
 
+void handleSetSmoothing() {
+    if (server.hasArg("val")) {
+        int val = server.arg("val").toInt();
+        setSmoothing(val);
+        server.send(200, "text/plain", "OK");
+    } else {
+        server.send(400, "text/plain", "Missing val");
+    }
+}
+
+void handleSetWiFiTimeout() {
+    if (server.hasArg("val")) {
+        int val = server.arg("val").toInt();
+        setWiFiTimeout(val);
+        server.send(200, "text/plain", "OK");
+    } else {
+        server.send(400, "text/plain", "Missing val");
+    }
+}
+
 void handleResetSettings() {
     resetSettings();
     server.send(200, "text/plain", "OK");
+}
+
+void handleResetStats() {
+    resetAllTimeStats();
+    server.send(200, "text/plain", "OK");
+}
+
+void handleGetStats() {
+    // Construct JSON
+    String json = "{";
+    json += "\"uptime\":" + String(millis() / 1000) + ",";
+    
+    // RSSI (Only valid if stations > 0, but we can try)
+    // ESP32 AP doesn't easily give RSSI of clients without digging into low level.
+    // We'll skip RSSI for now or just show station count.
+    json += "\"clients\":" + String(WiFi.softAPgetStationNum()) + ",";
+    
+    // Max Angles (All Time)
+    float atl, atr, apf, apb;
+    getAllTimeMax(&atl, &atr, &apf, &apb);
+    json += "\"at_rl\":" + String((int)abs(atl)) + ",";
+    json += "\"at_rr\":" + String((int)abs(atr)) + ",";
+    json += "\"at_pf\":" + String((int)abs(apf)) + ",";
+    json += "\"at_pb\":" + String((int)abs(apb)) + ",";
+    
+    // Max Angles (Session)
+    float sl, sr, sf, sb;
+    getSessionMax(&sl, &sr, &sf, &sb);
+    json += "\"s_rl\":" + String((int)abs(sl)) + ",";
+    json += "\"s_rr\":" + String((int)abs(sr)) + ",";
+    json += "\"s_pf\":" + String((int)abs(sf)) + ",";
+    json += "\"s_pb\":" + String((int)abs(sb));
+    
+    json += "}";
+    server.send(200, "application/json", json);
 }
 
 
@@ -476,8 +544,14 @@ void startAPMode() {
     server.on("/set_rotation", HTTP_POST, handleSetRotation);
     server.on("/set_critical", HTTP_POST, handleSetCritical);
     server.on("/set_color", HTTP_POST, handleSetColor);
+    server.on("/set_critical", HTTP_POST, handleSetCritical);
+    server.on("/set_color", HTTP_POST, handleSetColor);
     server.on("/set_pixel_shift", HTTP_POST, handleSetPixelShift);
+    server.on("/set_smoothing", HTTP_POST, handleSetSmoothing);
+    server.on("/set_wifi_timeout", HTTP_POST, handleSetWiFiTimeout);
     server.on("/reset_settings", HTTP_POST, handleResetSettings);
+    server.on("/reset_stats", HTTP_POST, handleResetStats);
+    server.on("/get_stats", handleGetStats);
     server.on("/reboot", HTTP_POST, [](){
         server.send(200, "text/plain", "Rebooting...");
         delay(100);
@@ -521,6 +595,11 @@ void startAPMode() {
     toast_visible = true;
     client_connected_flag = false;
     should_disconnect = false;
+    
+    // Load Timeout
+    web_prefs.begin("web", false);
+    wifi_timeout_sec = web_prefs.getInt("to", 45);
+    Serial.printf("AP Started. Timeout: %ds\n", wifi_timeout_sec);
 }
 
 void stopAPMode() {
@@ -577,8 +656,9 @@ void handleWebServer() {
                  }
              } else {
                  client_connected_flag = false;
-                 // If NO connection for > 45 seconds, Shutdown
-                 if (millis() - ap_start_time > 45000) {
+                 // If NO connection for > Timeout, Shutdown
+                 // Timeout 0 means Disabled? Let's say 0 is Always On.
+                 if (wifi_timeout_sec > 0 && (millis() - ap_start_time > (wifi_timeout_sec * 1000))) {
                      stopAPMode();
                  }
                  
@@ -601,4 +681,14 @@ void handleWebServer() {
 
 bool isAPMode() {
     return ap_mode_active;
+}
+
+void setWiFiTimeout(int seconds) {
+    if (seconds < 0) seconds = 0; // 0 = Always On
+    wifi_timeout_sec = seconds;
+    web_prefs.putInt("to", wifi_timeout_sec);
+}
+
+int getWiFiTimeout() {
+    return wifi_timeout_sec;
 }

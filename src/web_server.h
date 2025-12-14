@@ -17,3 +17,7 @@ void handleWebServer();
 void startAPMode();
 void stopAPMode();
 bool isAPMode();
+
+// Config API
+void setWiFiTimeout(int seconds);
+int getWiFiTimeout();

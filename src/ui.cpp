@@ -50,11 +50,17 @@ static lv_obj_t * dot_pitch_fwd;
 static lv_obj_t * dot_pitch_back;
 
 // Max Values (Persisted)
-// Max Values (Persisted)
-static float max_roll_left = 0;
-static float max_roll_right = 0;
-static float max_pitch_fwd = 0;
-static float max_pitch_back = 0;
+// Max Values (Persisted - All Time)
+static float all_time_roll_left = 0;
+static float all_time_roll_right = 0;
+static float all_time_pitch_fwd = 0;
+static float all_time_pitch_back = 0;
+
+// Max Values (Session - RAM only)
+static float session_roll_left = 0;
+static float session_roll_right = 0;
+static float session_pitch_fwd = 0;
+static float session_pitch_back = 0;
 static Preferences ui_prefs;
 
 // Settings
@@ -110,7 +116,7 @@ static void pixel_shift_cb(lv_timer_t * t) {
     lv_obj_set_style_translate_x(lv_scr_act(), x_offset, 0);
     lv_obj_set_style_translate_y(lv_scr_act(), y_offset, 0);
     
-    // Serial.printf("Pixel Shift: %d, %d\n", x_offset, y_offset);
+    Serial.printf("Pixel Shift: %d, %d\n", x_offset, y_offset);
 }
 
 // Toast Timer
@@ -196,10 +202,16 @@ void triggerCalibrationUI() {
     
     
     // Reset Max Values
-    max_roll_left = 0;
-    max_roll_right = 0;
-    max_pitch_fwd = 0;
-    max_pitch_back = 0;
+    // Reset Max Values (Session only?)
+    // User requested "Calibrate" resets the inclinometer zero.
+    // It implies starting a fresh measurement context?
+    // Let's reset SESSION max values on calibration.
+    session_roll_left = 0;
+    session_roll_right = 0;
+    session_pitch_fwd = 0;
+    session_pitch_back = 0;
+    
+    // Do NOT reset All Time max values here.
     
     max_pitch_fwd = 0;
     max_pitch_back = 0;
@@ -241,10 +253,19 @@ void initUI() {
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), LV_PART_MAIN);
 
     // Load Max Values & Settings
+    // Load Max Values & Settings
     ui_prefs.begin("ui", false);
-    max_roll_left = ui_prefs.getFloat("m_rl", 0);
-    max_pitch_fwd = ui_prefs.getFloat("m_pf", 0);
-    max_pitch_back = ui_prefs.getFloat("m_pb", 0);
+    all_time_roll_left = ui_prefs.getFloat("m_rl", 0);
+    // Compatibility: If keys exist (old version), they load into All Time.
+    all_time_roll_left = ui_prefs.getFloat("m_rl", 0); 
+    // Fix: Redundant line removed.
+    
+    all_time_roll_left = ui_prefs.getFloat("m_rl", 0);
+    all_time_roll_right = ui_prefs.getFloat("m_rr", 0); // Corrected key (was implicit in logic)
+    all_time_pitch_fwd = ui_prefs.getFloat("m_pf", 0);
+    all_time_pitch_back = ui_prefs.getFloat("m_pb", 0);
+    
+    // Note: session max starts at 0.
 
     // Load Rotation
     ui_rotation = ui_prefs.getInt("rot", 0);
@@ -480,19 +501,25 @@ void updateUI(float roll, float pitch) {
 
     // --- Max Angle Tracking ---
     if (!is_calibrating) {
-        if (effective_roll > max_roll_right) { max_roll_right = effective_roll; dirty = true; }
-        if (effective_roll < max_roll_left) { max_roll_left = effective_roll; dirty = true; }
-        
-        if (effective_pitch > max_pitch_back) { max_pitch_back = effective_pitch; dirty = true; }
-        if (effective_pitch < max_pitch_fwd) { max_pitch_fwd = effective_pitch; dirty = true; }
+        // Track All Time
+        if (effective_roll > all_time_roll_right) { all_time_roll_right = effective_roll; dirty = true; }
+        if (effective_roll < all_time_roll_left) { all_time_roll_left = effective_roll; dirty = true; }
+        if (effective_pitch > all_time_pitch_back) { all_time_pitch_back = effective_pitch; dirty = true; }
+        if (effective_pitch < all_time_pitch_fwd) { all_time_pitch_fwd = effective_pitch; dirty = true; }
+
+        // Track Session
+        if (effective_roll > session_roll_right) { session_roll_right = effective_roll; }
+        if (effective_roll < session_roll_left) { session_roll_left = effective_roll; }
+        if (effective_pitch > session_pitch_back) { session_pitch_back = effective_pitch; }
+        if (effective_pitch < session_pitch_fwd) { session_pitch_fwd = effective_pitch; }
     }
 
     // Save to NVS
     if (dirty && !is_calibrating && lv_tick_elaps(last_save_time) > 5000) {
-        ui_prefs.putFloat("m_rl", max_roll_left);
-        ui_prefs.putFloat("m_rr", max_roll_right);
-        ui_prefs.putFloat("m_pf", max_pitch_fwd);
-        ui_prefs.putFloat("m_pb", max_pitch_back);
+        ui_prefs.putFloat("m_rl", all_time_roll_left);
+        ui_prefs.putFloat("m_rr", all_time_roll_right);
+        ui_prefs.putFloat("m_pf", all_time_pitch_fwd);
+        ui_prefs.putFloat("m_pb", all_time_pitch_back);
         dirty = false;
         last_save_time = lv_tick_get();
     }
@@ -571,11 +598,11 @@ void updateUI(float roll, float pitch) {
     lv_obj_set_pos(pointer_pitch, px_pitch - 10, py_pitch - 15); 
     lv_image_set_rotation(pointer_pitch, (int32_t)((90 - effective_pitch) * 10));
 
-    // --- Update Max Markers ---
-    float disp_rl = (max_roll_left < -45.0) ? -45.0 : max_roll_left;
-    float disp_rr = (max_roll_right > 45.0) ? 45.0 : max_roll_right;
-    float disp_pf = (max_pitch_fwd < -45.0) ? -45.0 : max_pitch_fwd;
-    float disp_pb = (max_pitch_back > 45.0) ? 45.0 : max_pitch_back;
+    // --- Update Max Markers (USE SESSION MAX) ---
+    float disp_rl = (session_roll_left < -45.0) ? -45.0 : session_roll_left;
+    float disp_rr = (session_roll_right > 45.0) ? 45.0 : session_roll_right;
+    float disp_pf = (session_pitch_fwd < -45.0) ? -45.0 : session_pitch_fwd;
+    float disp_pb = (session_pitch_back > 45.0) ? 45.0 : session_pitch_back;
     
     // 1. Roll Left
     float rad_rl = (180.0 - disp_rl) * 3.14159 / 180.0;
@@ -837,6 +864,35 @@ void setPixelShift(bool enabled) {
 
 bool getPixelShift() {
     return pixel_shift_enabled;
+}
+
+void resetAllTimeStats() {
+    all_time_roll_left = 0;
+    all_time_roll_right = 0;
+    all_time_pitch_fwd = 0;
+    all_time_pitch_back = 0;
+    dirty = true;
+    
+    // Also reset session? User likely wants to clear everything.
+    session_roll_left = 0;
+    session_roll_right = 0;
+    session_pitch_fwd = 0;
+    session_pitch_back = 0;
+}
+
+void getAllTimeMax(float* r_left, float* r_right, float* p_fwd, float* p_back) {
+    if(r_left) *r_left = all_time_roll_left;
+    if(r_right) *r_right = all_time_roll_right;
+    if(p_fwd) *p_fwd = all_time_pitch_fwd;
+    if(p_back) *p_back = all_time_pitch_back;
+}
+
+void getSessionMax(float* r_left, float* r_right, float* p_fwd, float* p_back) {
+    if(r_left) *r_left = session_roll_left;
+    if(r_right) *r_right = session_roll_right;
+    if(p_fwd) *p_fwd = session_pitch_fwd;
+    if(p_back) *p_back = session_pitch_back;
+    
 }
 
 void setUIColor(int color_idx) {
