@@ -38,10 +38,6 @@ static lv_obj_t * lbl_critical_dynamic; // Single Object
 // Types: 0=Pitch, 1=Roll, 2=Both
 static lv_obj_t * overlay_status; // New stable container for status
 static lv_obj_t * lbl_status_dynamic; // Single Object
-// static lv_obj_t * label_status_0; // REMOVED OOM
-// static lv_obj_t * label_status_90;
-// static lv_obj_t * label_status_180;
-// static lv_obj_t * label_status_270;
 
 // Max Angle Markers
 static lv_obj_t * dot_roll_left;

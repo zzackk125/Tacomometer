@@ -12,10 +12,18 @@ A high-performance digital inclinometer for off-road enthusiasts, designed with 
 - **High Performance:** Leveraging LVGL v9 for buttery smooth gauge movement (20Hz+ update rate).
 - **Dual Axis:** Real-time Pitch and Roll monitoring.
 - **Max Angle Memory:** Tracks and displays the maximum angles reached during a session.
+- **Pixel Shifting:** Active burn-in protection for AMOLED displays (shifts UI pixels periodically).
+- **Gauge Smoothing:** Configurable Exponential Moving Average (EMA) filter for steady readings.
+- **Advanced Stats:** Tracks Session Max and All-Time Max angles, plus system uptime and client count.
+- **Web Interface:**
+  - **Live Calibration**
+  - **Dynamic Theme:** Choose from 6+ Tacoma-inspired colors.
+  - **OTA Updates:** Wirelessly update firmware.
+  - **Configurability:** Adjust Critical Angles, Wi-Fi Timeout, and Smoothing.
+- **Touch Calibration:** Long-press screen to zero.
 - **Dynamic Alerts:**
   - **Warning (Yellow Pulse):** > 30°
-  - **Critical (Red Flashing):** > 50°
-- **Touch Calibration:** Long-press the screen to zero the inclinometer on a flat surface.
+  - **Critical (Red Flashing):** > User Configurable (Default 50°)
 
 ## Hardware Requirements
 

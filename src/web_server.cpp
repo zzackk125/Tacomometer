@@ -15,7 +15,6 @@
 #include "imu_driver.h" // For zeroIMU, smoothing getters
 
 WebServer server(80);
-// DNSServer dnsServer; Removed
 bool ap_mode_active = false;
 uint32_t ap_start_time = 0;
 bool toast_visible = false;
@@ -593,14 +592,7 @@ void startAPMode() {
     IPAddress myIP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
     Serial.println(myIP); // Print to debug
-    
-    /* Captive Portal Removed
-    if (myIP) {
-        dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-        dnsServer.start(53, "*", myIP);
-    }
-    */
-
+ 
     server.on("/", handleRoot);
     
     // Captive Portal Handlers Removed
@@ -674,11 +666,10 @@ void stopAPMode() {
     if (!ap_mode_active) return;
     
     Serial.println("Stopping AP Mode...");
-    delay(100); 
     Serial.println("Stopping AP Mode...");
     delay(100); 
     server.stop();
-    // dnsServer.stop(); Removed
+    
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_OFF);
     ap_mode_active = false;
@@ -697,7 +688,7 @@ void createWebServer() {
 
 void handleWebServer() {
     if (ap_mode_active) {
-        // dnsServer.processNextRequest(); Removed
+        
         server.handleClient();
         
         if (should_disconnect) {
