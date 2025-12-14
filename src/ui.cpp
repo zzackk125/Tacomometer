@@ -213,8 +213,9 @@ void triggerCalibrationUI() {
     
     // Do NOT reset All Time max values here.
     
-    max_pitch_fwd = 0;
-    max_pitch_back = 0;
+    // Reset Max Values
+    
+    // Do NOT reset All Time max values here.
     
     // RAM ONLY: Do not write to NVS here (inside LVGL lock).
     // These will be saved by the background auto-save or explicit save later.

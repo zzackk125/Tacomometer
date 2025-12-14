@@ -69,8 +69,6 @@ void updateIMU() {
             float rawRoll = atan2(acc.y, acc.z) * 180.0 / PI;
             float rawPitch = atan2(-acc.x, sqrt(acc.y * acc.y + acc.z * acc.z)) * 180.0 / PI;
             
-            float rawPitch = atan2(-acc.x, sqrt(acc.y * acc.y + acc.z * acc.z)) * 180.0 / PI;
-            
             float targetRoll = rawRoll - offsetRoll;
             float targetPitch = rawPitch - offsetPitch;
             
@@ -114,6 +112,7 @@ void zeroIMU() {
     currentPitch = 0;
 }
 
+void saveIMUOffsets() {
     prefs.putFloat("roll_off", offsetRoll);
     prefs.putFloat("pitch_off", offsetPitch);
     Serial.println("Offsets Saved to NVS (Background)");
