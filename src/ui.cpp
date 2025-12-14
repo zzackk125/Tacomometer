@@ -248,6 +248,8 @@ static lv_obj_t* create_marker_dot(lv_obj_t* parent) {
 void initUI() {
     lv_obj_t * scr = lv_scr_act();
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), LV_PART_MAIN);
+    lv_obj_add_flag(scr, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(scr, calibration_event_cb, LV_EVENT_ALL, NULL);
 
     // Load Max Values & Settings
     // Load Max Values & Settings
@@ -302,7 +304,8 @@ void initUI() {
     lv_image_set_src(bg_img, &img_background);
     lv_obj_center(bg_img);
     lv_obj_add_flag(bg_img, LV_OBJ_FLAG_CLICKABLE); // Enable input for long press
-    lv_obj_add_event_cb(bg_img, calibration_event_cb, LV_EVENT_ALL, NULL);
+    lv_obj_add_flag(bg_img, LV_OBJ_FLAG_EVENT_BUBBLE); // Bubble to Screen
+    // lv_obj_add_event_cb(bg_img, calibration_event_cb, LV_EVENT_ALL, NULL); // Removed in favor of Bubble
     lv_image_set_rotation(bg_img, 0); // Always 0 (HW handles rotation)
 
 
@@ -416,9 +419,8 @@ void initUI() {
     lv_obj_set_style_border_opa(overlay_alert, 0, 0); // Hidden initially
     lv_obj_set_style_radius(overlay_alert, 233, 0); // Circular
     lv_obj_remove_flag(overlay_alert, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(overlay_alert, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(overlay_alert, LV_OBJ_FLAG_CLICKABLE); // Enable click to capture gesture
-    lv_obj_add_event_cb(overlay_alert, calibration_event_cb, LV_EVENT_ALL, NULL);
+    lv_obj_add_flag(overlay_alert, LV_OBJ_FLAG_EVENT_BUBBLE); // Bubble to Screen
 
     // 7. Critical Alert Overlay (Full Screen, High Z-Index)
     overlay_critical = lv_obj_create(scr);
@@ -433,7 +435,7 @@ void initUI() {
     lv_obj_add_flag(overlay_critical, LV_OBJ_FLAG_HIDDEN); // Hidden by default
     // Enable input on critical overlay to allow calibration/zeroing while critical
     lv_obj_add_flag(overlay_critical, LV_OBJ_FLAG_CLICKABLE); 
-    lv_obj_add_event_cb(overlay_critical, calibration_event_cb, LV_EVENT_ALL, NULL); 
+    lv_obj_add_flag(overlay_critical, LV_OBJ_FLAG_EVENT_BUBBLE); // Bubble to Screen 
     // Remove padding to ensure text has full width
     lv_obj_set_style_pad_all(overlay_critical, 0, 0);
 
@@ -451,7 +453,7 @@ void initUI() {
     
     // Make label clickable too so hitting the text works
     lv_obj_add_flag(lbl_critical_dynamic, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(lbl_critical_dynamic, calibration_event_cb, LV_EVENT_ALL, NULL);
+    lv_obj_add_flag(lbl_critical_dynamic, LV_OBJ_FLAG_EVENT_BUBBLE);
     // lv_obj_add_flag(lbl_critical_dynamic, LV_OBJ_FLAG_OVERFLOW_VISIBLE); // Failed
     lv_obj_set_style_text_color(lbl_critical_dynamic, lv_color_hex(0xFF0000), 0);
     
