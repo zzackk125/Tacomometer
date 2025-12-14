@@ -25,5 +25,7 @@ int getCriticalRoll();
 int getCriticalPitch();
 void setUIColor(int color_idx);
 int getUIColor();
+void setPixelShift(bool enabled);
+bool getPixelShift();
 void resetSettings();
 

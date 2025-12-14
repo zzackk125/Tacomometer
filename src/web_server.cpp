@@ -170,6 +170,13 @@ const char index_html[] PROGMEM = R"rawliteral(
       </div>
       <button style="margin-top:8px; padding:10px; font-size:12px;" onclick="resetCrit()">Reset to Default (50&deg;)</button>
       
+      <!-- New Protection Section -->
+      <span class="card-title" style="margin-top: 16px;">Protection</span>
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#2C2C2C; padding:10px; border-radius:6px;">
+          <label style="color:white; font-size:14px;">Burn-in Protection (Pixel Shift)</label>
+          <input type="checkbox" id="pshift" style="width:20px; height:20px;" onchange="setPixelShift()">
+      </div>
+      
       <span class="card-title" style="margin-top: 16px;">Display Theme</span>
       <div class="color-row">
         <!-- Orange, Blue, Green, Red, Purple, Yellow -->
@@ -256,6 +263,9 @@ const char index_html[] PROGMEM = R"rawliteral(
             
             // Update Version
             if(data.ver) document.getElementById('fw_ver').innerText = "v" + data.ver;
+            
+            // Update Pixel Shift
+            document.getElementById('pshift').checked = (data.pshift == 1);
         });
     }
     
@@ -275,6 +285,12 @@ const char index_html[] PROGMEM = R"rawliteral(
         saveCrit();
     }
     
+
+    function setPixelShift() {
+        var val = document.getElementById('pshift').checked ? 1 : 0;
+        fetch('/set_pixel_shift?val=' + val, {method:'POST'});
+    }
+
     function setColor(idx) {
         fetch('/set_color?val=' + idx, {method:'POST'}).then(refreshSettings);
     }
@@ -363,7 +379,8 @@ void handleGetSettings() {
     json += "\"crit_r\":" + String(getCriticalRoll()) + ",";
     json += "\"crit_p\":" + String(getCriticalPitch()) + ",";
     json += "\"color\":" + String(getUIColor()) + ",";
-    json += "\"ver\":\"" + String(FIRMWARE_VERSION) + "\"";
+    json += "\"ver\":\"" + String(FIRMWARE_VERSION) + "\",";
+    json += "\"pshift\":" + String(getPixelShift() ? 1 : 0);
     json += "}";
     server.send(200, "application/json", json);
 }
@@ -399,6 +416,17 @@ void handleSetColor() {
     if (server.hasArg("val")) {
         int val = server.arg("val").toInt();
         setUIColor(val);
+        server.send(200, "text/plain", "OK");
+    } else {
+        server.send(400, "text/plain", "Missing val");
+    }
+}
+
+
+void handleSetPixelShift() {
+    if (server.hasArg("val")) {
+        int val = server.arg("val").toInt();
+        setPixelShift(val > 0);
         server.send(200, "text/plain", "OK");
     } else {
         server.send(400, "text/plain", "Missing val");
@@ -448,6 +476,7 @@ void startAPMode() {
     server.on("/set_rotation", HTTP_POST, handleSetRotation);
     server.on("/set_critical", HTTP_POST, handleSetCritical);
     server.on("/set_color", HTTP_POST, handleSetColor);
+    server.on("/set_pixel_shift", HTTP_POST, handleSetPixelShift);
     server.on("/reset_settings", HTTP_POST, handleResetSettings);
     server.on("/reboot", HTTP_POST, [](){
         server.send(200, "text/plain", "Rebooting...");

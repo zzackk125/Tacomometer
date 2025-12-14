@@ -90,13 +90,30 @@ static uint32_t calibration_start_time = 0;
 static uint32_t last_save_time = 0;
 static bool dirty = false;
 
-// Auto-Save State
-// static uint32_t last_save_time = 0; // Redefinition removed
-// static bool dirty = false; // Redefinition removed
+// Pixel Shifting
+static bool pixel_shift_enabled = true;
+static lv_timer_t * pixel_shift_timer = NULL;
+
+static void pixel_shift_cb(lv_timer_t * t) {
+    if (!pixel_shift_enabled) {
+        // Ensure reset
+        lv_obj_set_style_translate_x(lv_scr_act(), 0, 0);
+        lv_obj_set_style_translate_y(lv_scr_act(), 0, 0);
+        return;
+    }
+    
+    // Generate small random offset (-2 to +2 pixels)
+    int x_offset = (rand() % 5) - 2; 
+    int y_offset = (rand() % 5) - 2;
+    
+    // Apply to Active Screen (shifts everything)
+    lv_obj_set_style_translate_x(lv_scr_act(), x_offset, 0);
+    lv_obj_set_style_translate_y(lv_scr_act(), y_offset, 0);
+    
+    // Serial.printf("Pixel Shift: %d, %d\n", x_offset, y_offset);
+}
 
 // Toast Timer
-
-
 static lv_obj_t * toast_obj = NULL;
 static uint32_t toast_show_time = 0;
 static uint32_t toast_duration = 2000;
@@ -239,6 +256,14 @@ void initUI() {
     
     // Load Color
     ui_color_idx = ui_prefs.getInt("color", 0);
+    
+    // Load Pixel Shift (Default 1/True)
+    pixel_shift_enabled = ui_prefs.getBool("p_shift", true);
+    
+    // Start Pixel Shift Timer (Every 60s)
+    pixel_shift_timer = lv_timer_create(pixel_shift_cb, 60000, NULL);
+    // Trigger once to ensure state matches
+    lv_timer_ready(pixel_shift_timer);
 
     // Sanitize Loaded Values
     if (critical_roll < 10 || critical_roll > 90) critical_roll = 50;
@@ -798,6 +823,21 @@ void setCriticalValues(int roll, int pitch) {
 
 int getCriticalRoll() { return critical_roll; }
 int getCriticalPitch() { return critical_pitch; }
+
+void setPixelShift(bool enabled) {
+    pixel_shift_enabled = enabled;
+    ui_prefs.putBool("p_shift", enabled);
+    
+    // Reset immediately if disabled
+    if (!enabled) {
+        lv_obj_set_style_translate_x(lv_scr_act(), 0, 0);
+        lv_obj_set_style_translate_y(lv_scr_act(), 0, 0);
+    }
+}
+
+bool getPixelShift() {
+    return pixel_shift_enabled;
+}
 
 void setUIColor(int color_idx) {
     if (color_idx < 0 || color_idx > 5) return;
