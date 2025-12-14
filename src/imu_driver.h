@@ -19,3 +19,6 @@ void zeroIMU(); // Updates RAM offsets only
 void saveIMUOffsets(); // Explicitly save to NVS
 void setSmoothing(int percent); // 0-100
 int getSmoothing();
+
+void setCalculationMode(int mode); // 0=Fusion (Default), 1=EMA
+int getCalculationMode(); // 0=Fusion, 1=EMA

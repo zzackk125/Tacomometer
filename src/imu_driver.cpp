@@ -29,6 +29,15 @@ int smoothing_percent = 100; // 100% = Instant
 float smoothRoll = 0.0;
 float smoothPitch = 0.0;
 
+// Sensor Fusion
+int calc_mode = 0; // 0=Fusion (Default), 1=EMA
+float gyroX_offset = 0.0;
+float gyroY_offset = 0.0;
+uint32_t last_update_time = 0;
+// Fusion variables (accumulators)
+float fusionRoll = 0.0;
+float fusionPitch = 0.0;
+
 void initIMU() {
     // Initialize QMI8658
     // Address is usually 0x6B or 0x6A. Demo used QMI8658_L_SLAVE_ADDRESS which is 0x6B.
@@ -59,7 +68,29 @@ void initIMU() {
     // 1% -> Alpha 0.01
     smoothing_alpha = (float)smoothing_percent / 100.0;
     
-    Serial.printf("Loaded Offsets: Roll=%f, Pitch=%f, Smooth=%d%%\n", offsetRoll, offsetPitch, smoothing_percent);
+    // Load Calculation Mode
+    calc_mode = prefs.getInt("mode", 0); // Default 0 (Fusion)
+    
+    Serial.printf("Loaded Offsets: Roll=%f, Pitch=%f, Smooth=%d%%, Mode=%d\n", offsetRoll, offsetPitch, smoothing_percent, calc_mode);
+
+    // Calibrate Gyro (Quick Sample)
+    Serial.println("Calibrating Gyro (Do not move)...");
+    float sumX = 0, sumY = 0;
+    int samples = 100;
+    for(int i=0; i<samples; i++) {
+        if(qmi.getDataReady()) {
+            if(qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
+                sumX += gyr.x;
+                sumY += gyr.y;
+            }
+        }
+        delay(3);
+    }
+    gyroX_offset = sumX / samples;
+    gyroY_offset = sumY / samples;
+    Serial.printf("Gyro Calibrated: Xoff=%f, Yoff=%f\n", gyroX_offset, gyroY_offset);
+    
+    last_update_time = micros();
 }
 
 void updateIMU() {
@@ -72,14 +103,59 @@ void updateIMU() {
             float targetRoll = rawRoll - offsetRoll;
             float targetPitch = rawPitch - offsetPitch;
             
-            // Apply Smoothing (EMA)
-            // current = alpha * target + (1-alpha) * current
-            if (smoothing_alpha >= 0.99) {
-                 smoothRoll = targetRoll;
-                 smoothPitch = targetPitch;
-            } else {
-                 smoothRoll = (smoothing_alpha * targetRoll) + ((1.0 - smoothing_alpha) * smoothRoll);
-                 smoothPitch = (smoothing_alpha * targetPitch) + ((1.0 - smoothing_alpha) * smoothPitch);
+            // Calculate dt
+            uint32_t now = micros();
+            float dt = (now - last_update_time) / 1000000.0; // Seconds
+            last_update_time = now;
+            
+            // --- MODE 0: SENSOR FUSION (Complementary Filter) ---
+            if (calc_mode == 0) {
+                 // Get Gyro data (Degrees Per Second)
+                 qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
+                 
+                 // Apply offsets
+                 float gx = gyr.x - gyroX_offset;
+                 float gy = gyr.y - gyroY_offset;
+                 
+                 // Complementary Filter
+                 // Angle = 0.98 * (Angle + Gyro * dt) + 0.02 * AccelAngle
+                 // Note: Accel Roll uses Y/Z, so rotation is around X axis -> Gyro X
+                 // Accel Pitch uses X/Y/Z, rotation around Y axis -> Gyro Y
+                 
+                 // We use a fixed high-alpha for fusion (0.98 is standard)
+                 // But we can let the user's "Smoothing" slider slightly adjust the trust?
+                 // Standard practice: Fixed 0.98 is usually best.
+                 float alpha = 0.98;
+                 
+                 // Use previous FUSED value for integration
+                 // Check for NaN or first run
+                 if(fusionRoll == 0.0 && fusionPitch == 0.0 && targetRoll != 0) {
+                     fusionRoll = targetRoll; // Seed with accel
+                     fusionPitch = targetPitch;
+                 }
+
+                 fusionRoll = alpha * (fusionRoll + gx * dt) + (1.0 - alpha) * targetRoll;
+                 // Pitch is often inverted on gyro depending on mounting, checking simple addition first
+                 fusionPitch = alpha * (fusionPitch + gy * dt) + (1.0 - alpha) * targetPitch;
+                 
+                 smoothRoll = fusionRoll;
+                 smoothPitch = fusionPitch;
+                 
+            } 
+            // --- MODE 1: EMA (Original) ---
+            else {
+                // current = alpha * target + (1-alpha) * current
+                if (smoothing_alpha >= 0.99) {
+                     smoothRoll = targetRoll;
+                     smoothPitch = targetPitch;
+                } else {
+                     smoothRoll = (smoothing_alpha * targetRoll) + ((1.0 - smoothing_alpha) * smoothRoll);
+                     smoothPitch = (smoothing_alpha * targetPitch) + ((1.0 - smoothing_alpha) * smoothPitch);
+                }
+                
+                // Keep fusion synced so if we switch modes it doesn't jump
+                fusionRoll = smoothRoll;
+                fusionPitch = smoothPitch;
             }
             
             currentRoll = smoothRoll;
@@ -130,4 +206,16 @@ void setSmoothing(int percent) {
 
 int getSmoothing() {
     return smoothing_percent;
+}
+
+void setCalculationMode(int mode) {
+    if (mode < 0) mode = 0;
+    if (mode > 1) mode = 1;
+    calc_mode = mode;
+    prefs.putInt("mode", calc_mode);
+    Serial.printf("Calculation Mode Set to: %d\n", calc_mode);
+}
+
+int getCalculationMode() {
+    return calc_mode;
 }

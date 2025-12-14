@@ -28,6 +28,7 @@ A high-performance digital inclinometer for off-road enthusiasts, designed with 
   - **Dynamic Theme:** Choose from 6+ Tacoma-inspired colors.
   - **OTA Updates:** Wirelessly update firmware.
   - **Configurability:** Adjust Critical Angles, Wi-Fi Timeout, and Smoothing.
+  - **Sensor Fusion:** Uses Gyroscope + Accelerometer for bump-free off-road performance (Toggleable).
 
   <p align="center">
     <img src="assets/web_controls.png" width="45%" />
@@ -48,7 +49,7 @@ A high-performance digital inclinometer for off-road enthusiasts, designed with 
 - **IMU Sensor:** QMI8658 (or similar 6-axis IMU supported by the driver).
 - **Power:** 5V USB-C or 3.7V LiPo Battery.
 
-## remote Control (Offline Mobile App)
+## Remote Control (Offline Mobile App)
 
 The device features a built-in Wi-Fi Access Point and Web Interface for remote calibration and settings.
 

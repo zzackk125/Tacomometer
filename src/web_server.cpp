@@ -208,6 +208,17 @@ const char index_html[] PROGMEM = R"rawliteral(
           <input type="range" id="smooth" min="1" max="100" oninput="updateSmoothUI(this.value)" onchange="saveSmooth(this.value)">
           <div class="row"><span style="font-size:12px">Slow</span> <span id="smooth_val" style="color:var(--primary)">100%</span> <span style="font-size:12px">Fast</span></div>
       </div>
+      
+      <div class="card">
+          <span class="card-title">Calculation Mode</span>
+          <div class="row">
+              <label>Use Sensor Fusion</label>
+              <input type="checkbox" id="cmode" onchange="saveMode(this.checked)">
+          </div>
+          <div id="mode_desc" style="font-size:12px; color:#aaa; margin-top:5px; font-style:italic;">
+              Fusion (Default): Best for driving. Resists bumps.
+          </div>
+      </div>
 
       <div class="card">
           <span class="card-title">Critical Angles</span>
@@ -387,6 +398,19 @@ const char index_html[] PROGMEM = R"rawliteral(
         updateSmoothUI(v);
         fetch('/set_smoothing?val='+v, {method:'POST'});
     }
+    
+    function saveMode(checked) {
+        var val = checked ? 0 : 1;
+        var desc = document.getElementById('mode_desc');
+        if(val === 0) {
+            desc.innerHTML = "Fusion (Default): Best for driving. Resists bumps.";
+            desc.style.color = "#aaa";
+        } else {
+            desc.innerHTML = "EMA Mode: Accel only. Good for static leveling, but lags heavily when moving.";
+            desc.style.color = "#FF9800";
+        }
+        fetch('/set_mode?val='+val, {method:'POST'});
+    }
     function setPixelShift() {
         let v = document.getElementById('pshift').checked ? 1 : 0;
         fetch('/set_pixel_shift?val='+v, {method:'POST'});
@@ -460,6 +484,7 @@ void handleGetSettings() {
     json += "\"ver\":\"" + String(FIRMWARE_VERSION) + "\",";
     json += "\"pshift\":" + String(getPixelShift() ? 1 : 0) + ",";
     json += "\"smooth\":" + String(getSmoothing()) + ",";
+    json += "\"mode\":" + String(getCalculationMode()) + ",";
     json += "\"wto\":" + String(getWiFiTimeout());
     json += "}";
     server.send(200, "application/json", json);
@@ -517,6 +542,16 @@ void handleSetSmoothing() {
     if (server.hasArg("val")) {
         int val = server.arg("val").toInt();
         setSmoothing(val);
+        server.send(200, "text/plain", "OK");
+    } else {
+        server.send(400, "text/plain", "Missing val");
+    }
+}
+
+void handleSetMode() {
+    if (server.hasArg("val")) {
+        int val = server.arg("val").toInt();
+        setCalculationMode(val);
         server.send(200, "text/plain", "OK");
     } else {
         server.send(400, "text/plain", "Missing val");
@@ -608,6 +643,7 @@ void startAPMode() {
     server.on("/set_color", HTTP_POST, handleSetColor);
     server.on("/set_pixel_shift", HTTP_POST, handleSetPixelShift);
     server.on("/set_smoothing", HTTP_POST, handleSetSmoothing);
+    server.on("/set_mode", HTTP_POST, handleSetMode);
     server.on("/set_wifi_timeout", HTTP_POST, handleSetWiFiTimeout);
     server.on("/reset_settings", HTTP_POST, handleResetSettings);
     server.on("/reset_stats", HTTP_POST, handleResetStats);
