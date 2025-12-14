@@ -118,7 +118,14 @@ The project uses python scripts to generate C arrays from images.
 
 ## License
 
-This project is open-source and licensed under the [MIT License](LICENSE).
+This project is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)**.
+
+[![CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](http://creativecommons.org/licenses/by-nc-sa/4.0/)
+
+### Summary of Rights:
+- **✅ You CAN:** Download, use, modify, and share this software for **Personal Use**.
+- **✅ You CAN:** Share adapted versions, provided they use the **same license**.
+- **❌ You CANNOT:** Sell this software or physical products containing this software for **Commercial Purposes** without explicit permission from the author.
 
 ## Credits
 - Built with [LVGL](https://lvgl.io/).
