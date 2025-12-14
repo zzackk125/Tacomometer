@@ -31,6 +31,10 @@ A high-performance digital inclinometer for off-road enthusiasts, designed with 
     <img src="assets/web_controls.png" width="45%" />
     <img src="assets/web_stats.png" width="45%" />
   </p>
+  <p align="center">
+    <img src="assets/web_customize.png" width="45%" />
+    <img src="assets/web_system.png" width="45%" />
+  </p>
 - **Touch Calibration:** Long-press screen to zero.
 - **Dynamic Alerts:**
   - **Warning (Yellow Pulse):** > 30°
