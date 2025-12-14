@@ -36,12 +36,31 @@ A high-performance digital inclinometer for off-road enthusiasts, designed with 
   </p>
   <p align="center">
     <img src="assets/web_customize.png" width="45%" />
-    <img src="assets/web_system.png" width="45%" />
+    <img src="assets/web_system_v2.png" width="45%" />
   </p>
 - **Touch Calibration:** Long-press screen to zero.
 - **Dynamic Alerts:**
   - **Warning (Red Pulse):** > 30°
   - **Critical (Red Flashing):** > User Configurable (Default 50°)
+
+## Sensor Calculation Modes
+
+The Tacomometer offers two distinct modes for calculating pitch and roll, selectable via the Web Interface:
+
+### 1. Sensor Fusion (Default & Recommended)
+**Best for:** Driving, Off-roading, Dynamic Motion.  
+Combines data from both the **Accelerometer** (gravity) and **Gyroscope** (rotation rate).
+- **Pros:** Extremely resistant to bumps, vibrations, and cornering g-forces. The gauge remains steady even on rough terrain.
+- **Cons:** Requires the gyroscope to be active.
+
+### 2. EMA (Exponential Moving Average)
+**Best for:** Static leveling (parking), camping.  
+Relies solely on the **Accelerometer** with a heavy smoothing filter.
+- **Pros:** simple "bubble level" physics, effectively averages out small vibrations over time.
+- **Cons:** Susceptible to "sloshing" during cornering or acceleration (g-force errors). The gauge reacts slower to changes.
+
+**Why the Toggle?**  
+While Sensor Fusion is superior for driving, some users may prefer the "raw" feel of a traditional bubble level for setting up camp or leveling a vehicle when parked. The toggle allows you to choose the behavior that fits your current activity.
 
 ## Hardware Requirements
 

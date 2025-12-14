@@ -129,6 +129,14 @@ const char index_html[] PROGMEM = R"rawliteral(
        position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 100;
     }
     #toast.show { visibility: visible; }
+    
+    /* Toggle Switch */
+    .switch { position: relative; display: inline-block; width: 52px; height: 28px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .3s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(24px); }
   </style>
 </head>
 <body>
@@ -209,16 +217,7 @@ const char index_html[] PROGMEM = R"rawliteral(
           <div class="row"><span style="font-size:12px">Slow</span> <span id="smooth_val" style="color:var(--primary)">100%</span> <span style="font-size:12px">Fast</span></div>
       </div>
       
-      <div class="card">
-          <span class="card-title">Calculation Mode</span>
-          <div class="row">
-              <label>Use Sensor Fusion</label>
-              <input type="checkbox" id="cmode" onchange="saveMode(this.checked)">
-          </div>
-          <div id="mode_desc" style="font-size:12px; color:#aaa; margin-top:5px; font-style:italic;">
-              Fusion (Default): Best for driving. Resists bumps.
-          </div>
-      </div>
+
 
       <div class="card">
           <span class="card-title">Critical Angles</span>
@@ -244,6 +243,21 @@ const char index_html[] PROGMEM = R"rawliteral(
 
   <!-- SYSTEM PAGE -->
   <div id="system" class="container">
+      <div class="card">
+          <span class="card-title">Calculation Mode</span>
+          <div class="row">
+              <label>Use Sensor Fusion</label>
+              <label class="switch">
+                  <input type="checkbox" id="cmode" onchange="saveMode(this.checked)">
+                  <span class="slider"></span>
+              </label>
+          </div>
+          <div id="mode_desc" style="font-size:12px; color:#aaa; margin-top:5px; font-style:italic;">
+              Fusion (Default): Best for driving. Resists bumps.
+          </div>
+      </div>
+
+
       <div class="card">
           <span class="card-title">Power Saving</span>
           <div class="row">
@@ -324,6 +338,10 @@ const char index_html[] PROGMEM = R"rawliteral(
             // Smooth
             document.getElementById('smooth').value = d.smooth;
             document.getElementById('smooth_val').innerText = d.smooth + '%';
+            // Mode
+            var isFusion = (d.mode == 0);
+            document.getElementById('cmode').checked = isFusion;
+            updateModeUI(isFusion);
             // System
             document.getElementById('pshift').checked = (d.pshift == 1);
             document.getElementById('wto').value = d.wto;
@@ -399,7 +417,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         fetch('/set_smoothing?val='+v, {method:'POST'});
     }
     
-    function saveMode(checked) {
+    function updateModeUI(checked) {
         var val = checked ? 0 : 1;
         var desc = document.getElementById('mode_desc');
         if(val === 0) {
@@ -409,6 +427,11 @@ const char index_html[] PROGMEM = R"rawliteral(
             desc.innerHTML = "EMA Mode: Accel only. Good for static leveling, but lags heavily when moving.";
             desc.style.color = "#FF9800";
         }
+    }
+
+    function saveMode(checked) {
+        updateModeUI(checked);
+        var val = checked ? 0 : 1;
         fetch('/set_mode?val='+val, {method:'POST'});
     }
     function setPixelShift() {
