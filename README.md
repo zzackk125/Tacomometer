@@ -51,6 +51,7 @@ The Tacomometer offers two distinct modes for calculating pitch and roll, select
 **Best for:** Driving, Off-roading, Dynamic Motion.  
 Combines data from both the **Accelerometer** (gravity) and **Gyroscope** (rotation rate).
 - **Pros:** Extremely resistant to bumps, vibrations, and cornering g-forces. The gauge remains steady even on rough terrain.
+- **Cornering Compensation:** Automatically detects when the vehicle is turning (using Yaw rate) and ignores lateral centripetal forces, preventing false roll readings.
 - **Cons:** Requires the gyroscope to be active.
 
 ### 2. EMA (Exponential Moving Average)

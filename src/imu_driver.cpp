@@ -33,6 +33,13 @@ float smoothPitch = 0.0;
 int calc_mode = 0; // 0=Fusion (Default), 1=EMA
 float gyroX_offset = 0.0;
 float gyroY_offset = 0.0;
+float gyroZ_offset = 0.0;
+
+// Filter Tunings
+const float TAU_NORMAL = 1.5f;       // 1.5s (Steady driving)
+const float TAU_TURNING = 10.0f;     // 10.0s (Turning - Reject lateral accel)
+const float TURN_THRESHOLD_DPS = 8.0f; // Turn detection threshold (deg/s)
+
 uint32_t last_update_time = 0;
 // Fusion variables (accumulators)
 float fusionRoll = 0.0;
@@ -75,20 +82,22 @@ void initIMU() {
 
     // Calibrate Gyro (Quick Sample)
     Serial.println("Calibrating Gyro (Do not move)...");
-    float sumX = 0, sumY = 0;
+    float sumX = 0, sumY = 0, sumZ = 0;
     int samples = 100;
     for(int i=0; i<samples; i++) {
         if(qmi.getDataReady()) {
             if(qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
                 sumX += gyr.x;
                 sumY += gyr.y;
+                sumZ += gyr.z;
             }
         }
         delay(3);
     }
     gyroX_offset = sumX / samples;
     gyroY_offset = sumY / samples;
-    Serial.printf("Gyro Calibrated: Xoff=%f, Yoff=%f\n", gyroX_offset, gyroY_offset);
+    gyroZ_offset = sumZ / samples;
+    Serial.printf("Gyro Calibrated: Xoff=%f, Yoff=%f, Zoff=%f\n", gyroX_offset, gyroY_offset, gyroZ_offset);
     
     last_update_time = micros();
 }
@@ -116,16 +125,20 @@ void updateIMU() {
                  // Apply offsets
                  float gx = gyr.x - gyroX_offset;
                  float gy = gyr.y - gyroY_offset;
+                 float gz = gyr.z - gyroZ_offset;
                  
-                 // Complementary Filter
-                 // Angle = 0.98 * (Angle + Gyro * dt) + 0.02 * AccelAngle
-                 // Note: Accel Roll uses Y/Z, so rotation is around X axis -> Gyro X
-                 // Accel Pitch uses X/Y/Z, rotation around Y axis -> Gyro Y
+                 // Smart Time Constant Logic
+                 // If we are turning (high Yaw rate), the accelerometer reads lateral force as gravity (roll).
+                 // In this case, we rely HEAVILY on the gyro (High Time Constant).
+                 // If driving straight, we use a normal time constant to correct gyro drift.
+                 float tau = TAU_NORMAL;
+                 if (abs(gz) > TURN_THRESHOLD_DPS) {
+                      tau = TAU_TURNING;
+                 }
                  
-                 // We use a fixed high-alpha for fusion (0.98 is standard)
-                 // But we can let the user's "Smoothing" slider slightly adjust the trust?
-                 // Standard practice: Fixed 0.98 is usually best.
-                 float alpha = 0.98;
+                 // Calculate Alpha based on actual dt
+                 // alpha = tau / (tau + dt)
+                 float alpha = tau / (tau + dt);
                  
                  // Use previous FUSED value for integration
                  // Check for NaN or first run
